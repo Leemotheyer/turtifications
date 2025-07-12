@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <section class="templates">
+        <h2>Flow Templates</h2>
+        <p>Choose from pre-built templates to quickly create common notification flows.</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Category Filter -->
+        <div class="template-filters">
+            <a href="{{ url_for('show_templates') }}" 
+               class="filter-btn {% if not selected_category %}active{% endif %}">
+                All Categories
+            </a>
+            {% for category in categories %}
+                <a href="{{ url_for('show_templates', category=category) }}" 
+                   class="filter-btn {% if selected_category == category %}active{% endif %}">
+                    {{ category }}
+                </a>
+            {% endfor %}
+        </div>
+        
+        <!-- Templates Grid -->
+        <div class="templates-grid">
+            {% for template_id, template in templates.items() %}
+                <div class="template-card">
+                    <div class="template-header">
+                        <h3>{{ template.name }}</h3>
+                        <span class="template-category">{{ template.category }}</span>
+                    </div>
+                    
+                    <p class="template-description">{{ template.description }}</p>
+                    
+                    <div class="template-details">
+                        <div class="detail-item">
+                            <strong>Trigger:</strong> 
+                            {% if template.trigger_type == 'timer' %}
+                                Timer
+                            {% elif template.trigger_type == 'on_change' %}
+                                Change Detection
+                            {% else %}
+                                Webhook
+                            {% endif %}
+                        </div>
+                        
+                        {% if template.trigger_type == 'timer' and template.interval %}
+                            <div class="detail-item">
+                                <strong>Interval:</strong> {{ template.interval }} minutes
+                            </div>
+                        {% endif %}
+                        
+                        {% if template.endpoint %}
+                            <div class="detail-item">
+                                <strong>Endpoint:</strong> {{ template.endpoint }}
+                            </div>
+                        {% endif %}
+                        
+                        {% if template.field %}
+                            <div class="detail-item">
+                                <strong>Field:</strong> {{ template.field }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="template-preview">
+                        <strong>Message Preview:</strong>
+                        <div class="preview-content">
+                            {{ template.message_template[:100] }}{% if template.message_template|length > 100 %}...{% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="template-actions">
+                        <a href="{{ url_for('use_template', template_name=template_id) }}" 
+                           class="btn-use-template">Use Template</a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="no-templates">
+                    <p>No templates found for the selected category.</p>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="template-actions-bottom">
+            <a href="{{ url_for('notification_builder') }}" class="btn-secondary">Create Custom Flow</a>
+        </div>
+    </section>
+{% endblock %} 

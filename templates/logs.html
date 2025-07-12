@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <section class="logs">
+        <div class="logs-header">
+            <h2>Notification Logs</h2>
+            <div class="logs-actions">
+                <div class="category-filter">
+                    <label for="category-filter">Filter by Category:</label>
+                    <select id="category-filter" onchange="filterByCategory()">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                            <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>
+                                {{ category }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button onclick="clearLogs()" class="btn-clear">Clear Logs</button>
+                <button onclick="refreshLogs()" class="btn-refresh">Refresh</button>
+            </div>
+        </div>
+        
+        <div class="log-stats">
+            <div class="stat-item">
+                <strong>Total Logs:</strong> <span id="total-logs">Loading...</span>
+            </div>
+            <div class="stat-item">
+                <strong>Oldest Log:</strong> <span id="oldest-log">Loading...</span>
+            </div>
+            <div class="stat-item">
+                <strong>Newest Log:</strong> <span id="newest-log">Loading...</span>
+            </div>
+            {% if selected_category %}
+            <div class="stat-item">
+                <strong>Filtered by:</strong> <span id="filtered-category">{{ selected_category }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="category-breakdown" id="category-breakdown" style="display: none;">
+            <h4>Category Breakdown</h4>
+            <div class="category-stats" id="category-stats">
+                <!-- Category stats will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <div class="log-entries">
+            {% for log in logs %}
+                <div class="log-entry" data-category="{{ log.category or 'General' }}">
+                    <div class="log-header">
+                        <span class="timestamp">{{ log.timestamp }}</span>
+                        <span class="log-category category-{{ (log.category or 'General')|lower|replace(' ', '-') }}">{{ log.category or 'General' }}</span>
+                    </div>
+                    <span class="message">{{ log.message }}</span>
+                </div>
+            {% else %}
+                <p>No logs yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <script>
+        // Load log statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLogStats();
+        });
+        
+        function loadLogStats() {
+            const categoryFilter = document.getElementById('category-filter');
+            const selectedCategory = categoryFilter ? categoryFilter.value : '';
+            const url = selectedCategory ? `/logs/stats?category=${encodeURIComponent(selectedCategory)}` : '/logs/stats';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-logs').textContent = data.total_logs;
+                    document.getElementById('oldest-log').textContent = data.oldest_log || 'N/A';
+                    document.getElementById('newest-log').textContent = data.newest_log || 'N/A';
+                    
+                    // Show category breakdown if available
+                    if (data.category_counts) {
+                        showCategoryBreakdown(data.category_counts);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading log stats:', error);
+                });
+        }
+        
+        function showCategoryBreakdown(categoryCounts) {
+            const breakdownDiv = document.getElementById('category-breakdown');
+            const statsDiv = document.getElementById('category-stats');
+            
+            if (!breakdownDiv || !statsDiv) return;
+            
+            // Clear existing content
+            statsDiv.innerHTML = '';
+            
+            // Create category stat items
+            Object.entries(categoryCounts).forEach(([category, count]) => {
+                const statItem = document.createElement('div');
+                statItem.className = 'category-stat-item';
+                statItem.innerHTML = `
+                    <span class="category-name category-${category.toLowerCase().replace(' ', '-')}">${category}</span>
+                    <span class="category-count">${count}</span>
+                `;
+                statsDiv.appendChild(statItem);
+            });
+            
+            breakdownDiv.style.display = 'block';
+        }
+        
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
+                fetch('/logs/clear', {
+                    method: 'POST'
+                })
+                .then(() => {
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error clearing logs:', error);
+                    alert('Failed to clear logs');
+                });
+            }
+        }
+        
+        function refreshLogs() {
+            window.location.reload();
+        }
+        
+        function filterByCategory() {
+            const categoryFilter = document.getElementById('category-filter');
+            const selectedCategory = categoryFilter.value;
+            
+            if (selectedCategory) {
+                window.location.href = `/logs?category=${encodeURIComponent(selectedCategory)}`;
+            } else {
+                window.location.href = '/logs';
+            }
+        }
+        
+        // Reload stats when category filter changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const categoryFilter = document.getElementById('category-filter');
+            if (categoryFilter) {
+                categoryFilter.addEventListener('change', function() {
+                    // Small delay to ensure the page navigation happens
+                    setTimeout(() => {
+                        loadLogStats();
+                    }, 100);
+                });
+            }
+        });
+    </script>
+{% endblock %}

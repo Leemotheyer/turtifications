@@ -1,0 +1,872 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="builder-container">
+        <div class="builder-left">
+            <section class="builder">
+                <div class="builder-header">
+                    <h2>Notification Flow Builder</h2>
+                    <div class="builder-actions">
+                        <a href="{{ url_for('show_templates') }}" class="btn-templates">📋 Templates</a>
+                        <a href="{{ url_for('show_flow_stats') }}" class="btn-stats">📊 Statistics</a>
+                    </div>
+                </div>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="post">
+            <h3>Webhook Configuration</h3>
+            <div class="form-group">
+                <label for="webhook_url">Discord Webhook URL:</label>
+                <input type="url" id="webhook_url" name="webhook_url" 
+                       value="{{ editing_flow.webhook_url if editing_flow else webhook_url }}" 
+                       placeholder="https://discord.com/api/webhooks/..." required>
+            </div>
+            
+            <h3>Notification Flow</h3>
+            <div class="form-group">
+                <label for="flow_name">Flow Name:</label>
+                <input type="text" id="flow_name" name="flow_name" 
+                       value="{{ editing_flow.name if editing_flow else (template_data.name if template_data else '') }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="category">Category:</label>
+                <select id="category" name="category">
+                    <option value="General" {% if editing_flow and editing_flow.category == 'General' %}selected{% endif %}>General</option>
+                    <option value="Media" {% if editing_flow and editing_flow.category == 'Media' %}selected{% endif %}>Media</option>
+                    <option value="System" {% if editing_flow and editing_flow.category == 'System' %}selected{% endif %}>System</option>
+                    <option value="Monitoring" {% if editing_flow and editing_flow.category == 'Monitoring' %}selected{% endif %}>Monitoring</option>
+                    <option value="Reports" {% if editing_flow and editing_flow.category == 'Reports' %}selected{% endif %}>Reports</option>
+                    <option value="Alerts" {% if editing_flow and editing_flow.category == 'Alerts' %}selected{% endif %}>Alerts</option>
+                </select>
+                <small>Organize your flows with categories</small>
+            </div>
+            
+            <div class="form-group">
+                <h3>Webhook Receiver</h3>
+                <label>
+                    <input type="checkbox" name="accept_webhooks" id="accept_webhooks" value="true"
+                           {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
+                    Accept incoming webhooks
+                </label>
+                <div class="webhook-info" style="display: none;">
+                    <p>Use this URL to receive webhooks from external services:</p>
+                    <div class="webhook-url">
+                        <code id="webhook-url-display">/api/webhook/</code>
+                        <input type="text" id="flow-name-display" 
+                               value="{{ editing_flow.name if editing_flow else '' }}" readonly>
+                        <button type="button" onclick="copyWebhookUrl()">Copy</button>
+                    </div>
+                    <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Trigger Type:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="trigger_type" value="timer"
+                               {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> Timer
+                    </label>
+                    <label>
+                        <input type="radio" name="trigger_type" value="on_change"
+                               {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> On Change
+                    </label>
+                    <label id="on-incoming-option" style="display: none;">
+                        <input type="radio" name="trigger_type" value="on_incoming"
+                               {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> On Incoming Webhook
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group" id="timer-options" style="display: none;">
+                <label for="interval">Interval (minutes):</label>
+                <input type="number" id="interval" name="interval" min="1" 
+                       value="{{ editing_flow.interval if editing_flow else '5' }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="endpoint">API Endpoint:</label>
+                <input type="url" id="endpoint" name="endpoint" 
+                       value="{{ editing_flow.endpoint if editing_flow else '' }}"
+                       placeholder="https://api.example.com/data">
+                <small>Optional for timer triggers, required for change detection</small>
+                
+                <label for="field">Field to Use:</label>
+                <input type="text" id="field" name="field" 
+                       value="{{ editing_flow.field if editing_flow else '' }}"
+                       placeholder="result['0']['web_title']">
+                <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title'] (required for change detection)</small>
+            </div>
+
+            <details class="advanced-api-settings">
+                <summary><strong>Advanced API Settings</strong> (optional)</summary>
+                <div class="form-group">
+                    <label>Custom Headers:</label>
+                    <div id="headers-list">
+                        {% if editing_flow and editing_flow.api_headers %}
+                            {% for header in editing_flow.api_headers %}
+                                <div class="header-row">
+                                    <input type="text" name="header_key[]" value="{{ header.key }}" placeholder="Header Name">
+                                    <input type="text" name="header_value[]" value="{{ header.value }}" placeholder="Header Value">
+                                    <button type="button" class="remove-header">✖</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    <button type="button" id="add-header">+ Add Header</button>
+                    <small>
+                        <strong>Common headers:</strong>
+                        <br>
+                        • <code>Content-Type: application/json</code> - For JSON/GraphQL APIs
+                        <br>
+                        • <code>Authorization: Bearer &lt;token&gt;</code> - For authenticated APIs
+                        <br>
+                        • <code>X-API-Key: &lt;key&gt;</code> - For API key authentication
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="api_request_body">Request Body:</label>
+                    <textarea id="api_request_body" name="api_request_body" rows="4" placeholder='{"key": "value"} or GraphQL query'>{{ editing_flow.api_request_body if editing_flow else '' }}</textarea>
+                    <small>
+                        <strong>Optional.</strong> If provided, a POST request will be made with this body. Otherwise, a GET request is used.
+                        <br><br>
+                        <strong>For JSON APIs:</strong> <code>{"key": "value", "param": "data"}</code>
+                        <br>
+                        <strong>For GraphQL:</strong> <code>{"query": "{ categories { nodes { mangas { totalCount } } } }"}</code>
+                        <br>
+                        <strong>For GraphQL (simplified):</strong> <code>{ categories { nodes { mangas { totalCount } } } }</code>
+                        <br>
+                        <strong>💡 Tip:</strong> Make sure to set Content-Type: application/json header for JSON/GraphQL APIs!
+                    </small>
+                </div>
+            </details>
+
+            <h3>Conditional Notifications</h3>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="condition_enabled" id="condition_enabled" value="true"
+                           {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
+                    Enable Conditional Notifications
+                </label>
+                <small>Only send notifications when conditions are met</small>
+            </div>
+            
+            <div id="condition-config" style="display: none;">
+                <div class="form-group">
+                    <label for="condition">Condition Expression:</label>
+                    <input type="text" id="condition" name="condition" 
+                           value="{{ editing_flow.condition if editing_flow else '' }}"
+                           placeholder="value > 100 and status == 'active'">
+                    <small>
+                        <strong>Available variables:</strong> value, old_value, data, time, and any API data fields
+                        <br>
+                        <strong>Examples:</strong>
+                        <br>
+                        • <code>value > 100</code> - Only if value is greater than 100
+                        <br>
+                        • <code>result['downloaded_issues'] > 0</code> - Only if downloads exist
+                        <br>
+                        • <code>value != old_value and value != 'error'</code> - Only on change and not error
+                        <br>
+                        • <code>data['status'] == 'active'</code> - Only if status is active
+                        <br>
+                        <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
+                    </small>
+                </div>
+            </div>
+
+            <h3>Webhook Appearance</h3>
+            <div class="form-group">
+                <label for="webhook_name">Webhook Name:</label>
+                <input type="text" id="webhook_name" name="webhook_name" 
+                       value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
+                       placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
+                <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="webhook_avatar">Webhook Avatar URL:</label>
+                <input type="url" id="webhook_avatar" name="webhook_avatar" 
+                       value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
+                       placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
+                <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="message_template">Message Template:</label>
+                <textarea id="message_template" name="message_template" rows="3">{{ editing_flow.message_template if editing_flow else (template_data.message_template if template_data else '') }}</textarea>
+                <small>
+                    Available variables: 
+                    {value} - Current field value, 
+                    {old_value} - Previous value (change detection only),
+                    {time} - Current time,
+                    {data} - Full API response data
+                    <br><br>
+                    <strong>For API data:</strong> Use {value} or {data} for full response
+                    <br>
+                    <strong>Examples:</strong>
+                    <br>
+                    • {result['downloaded_issues']} - Access nested data
+                    <br>
+                    • {result['0']['web_title']} - Access array data
+                    <br>
+                    • {time} - Current timestamp
+                    <br><br>
+                    <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
+                    <br>
+                    <strong>📝 Note:</strong> This message appears above the embed. Leave empty if using embeds only.
+                </small>
+            </div>
+            
+            <h3>Discord Embed Configuration</h3>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="embed_enabled" id="embed_enabled" value="true"
+                           {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.enabled %}checked{% endif %}> 
+                    Enable Discord Embed
+                </label>
+                <small>Embeds provide rich formatting with colors, images, fields, and more</small>
+            </div>
+            
+            <div id="embed-config" style="display: none;">
+                <div class="form-group">
+                    <label for="embed_title">Embed Title:</label>
+                    <input type="text" id="embed_title" name="embed_title" 
+                           value="{{ editing_flow.embed_config.title if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="Notification Title">
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_description">Embed Description:</label>
+                    <textarea id="embed_description" name="embed_description" rows="3"
+                              placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
+                    <small>Supports the same variables as message template</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_url">Embed URL:</label>
+                    <input type="url" id="embed_url" name="embed_url" 
+                           value="{{ editing_flow.embed_config.url if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com">
+                    <small>Optional link for the embed title</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_color">Embed Color:</label>
+                    <input type="color" id="embed_color" name="embed_color" 
+                           value="{{ editing_flow.embed_config.color if editing_flow and editing_flow.embed_config else '#3498db' }}">
+                    <small>Color for the embed border</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="embed_timestamp" value="true"
+                               {% if not editing_flow or not editing_flow.embed_config or editing_flow.embed_config.timestamp %}checked{% endif %}> 
+                        Show Timestamp
+                    </label>
+                </div>
+                
+                <h4>Author</h4>
+                <div class="form-group">
+                    <label for="embed_author_name">Author Name:</label>
+                    <input type="text" id="embed_author_name" name="embed_author_name" 
+                           value="{{ editing_flow.embed_config.author_name if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="Author Name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_author_icon">Author Icon URL:</label>
+                    <input type="url" id="embed_author_icon" name="embed_author_icon" 
+                           value="{{ editing_flow.embed_config.author_icon if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com/icon.png">
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_author_url">Author URL:</label>
+                    <input type="url" id="embed_author_url" name="embed_author_url" 
+                           value="{{ editing_flow.embed_config.author_url if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com">
+                </div>
+                
+                <h4>Footer</h4>
+                <div class="form-group">
+                    <label for="embed_footer_text">Footer Text:</label>
+                    <input type="text" id="embed_footer_text" name="embed_footer_text" 
+                           value="{{ editing_flow.embed_config.footer_text if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="Footer text">
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_footer_icon">Footer Icon URL:</label>
+                    <input type="url" id="embed_footer_icon" name="embed_footer_icon" 
+                           value="{{ editing_flow.embed_config.footer_icon if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com/footer-icon.png">
+                </div>
+                
+                <h4>Images</h4>
+                <div class="form-group">
+                    <label for="embed_thumbnail_url">Thumbnail URL:</label>
+                    <input type="url" id="embed_thumbnail_url" name="embed_thumbnail_url" 
+                           value="{{ editing_flow.embed_config.thumbnail_url if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com/thumbnail.png">
+                    <small>Small image in the top-right corner</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="embed_image_url">Main Image URL:</label>
+                    <input type="url" id="embed_image_url" name="embed_image_url" 
+                           value="{{ editing_flow.embed_config.image_url if editing_flow and editing_flow.embed_config else '' }}"
+                           placeholder="https://example.com/image.png">
+                    <small>Large image at the bottom of the embed</small>
+                </div>
+                
+                <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields!</small>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="active" value="true"
+                           {% if not editing_flow or editing_flow.active %}checked{% endif %}> Active
+                </label>
+            </div>
+            
+            <div class="form-actions">
+                {% if editing_flow %}
+                    <button type="submit">Update Flow</button>
+                    <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
+                    <a href="{{ url_for('notification_builder') }}" class="btn-cancel">Cancel</a>
+                {% else %}
+                    <button type="submit">Save Flow</button>
+                    <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
+                {% endif %}
+            </div>
+        </form>
+            </section>
+        </div>
+        
+        <div class="builder-right">
+            <section class="saved-flows">
+                <div class="flows-header">
+                    <h3>Saved Flows ({{ flows|length }})</h3>
+                    <div class="flows-actions">
+                        <button type="button" onclick="previewNotification()" class="btn-preview" title="Preview with real API data if endpoint is configured">👁️ Preview</button>
+                        <a href="{{ url_for('export_flows') }}" class="btn-export">📤 Export All</a>
+                    </div>
+                </div>
+                
+                <!-- Category Filter -->
+                <div class="category-filter">
+                    <label for="category-filter">Filter by Category:</label>
+                    <select id="category-filter">
+                        <option value="">All Categories</option>
+                        <option value="General">General</option>
+                        <option value="Media">Media</option>
+                        <option value="System">System</option>
+                        <option value="Monitoring">Monitoring</option>
+                        <option value="Reports">Reports</option>
+                        <option value="Alerts">Alerts</option>
+                    </select>
+                </div>
+                
+                <!-- Import/Export Section -->
+                <div class="import-export-section">
+                    <form action="{{ url_for('import_flows') }}" method="post" enctype="multipart/form-data" class="import-form">
+                        <input type="file" name="file" accept=".json" id="import-file" style="display: none;">
+                        <button type="button" onclick="document.getElementById('import-file').click()" class="btn-import">📥 Import Flows</button>
+                        <button type="submit" id="import-submit" style="display: none;">Import</button>
+                    </form>
+                </div>
+                <div class="flows-list">
+            {% for flow in flows %}
+                <div class="flow-card {% if not flow.active %}flow-inactive{% endif %}" data-category="{{ flow.category or 'General' }}">
+                    <div class="flow-header">
+                        <h3>{{ flow.name }}</h3>
+                        <label class="switch">
+                            <input type="checkbox" 
+                                   class="flow-toggle" 
+                                   data-flow-name="{{ flow.name }}"
+                                   {% if flow.active %}checked{% endif %}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p><strong>Category:</strong> {{ flow.category or 'General' }}</p>
+                    <p><strong>Trigger:</strong> 
+                        {% if flow.trigger_type == 'timer' %}
+                            Timer (every {{ flow.interval }} minutes)
+                        {% elif flow.trigger_type == 'on_change' %}
+                            On Change ({{ flow.field }} on {{ flow.endpoint }})
+                        {% else %}
+                            On Incoming Webhook
+                        {% endif %}
+                    </p>
+                    {% if flow.accept_webhooks or flow.trigger_type == 'on_incoming' %}
+                    <p><strong>Webhook URL:</strong> /api/webhook/{{ flow.name }}</p>
+                    {% if flow.webhook_secret %}
+                    <p><strong>Webhook Secret:</strong> {{ flow.webhook_secret }}</p>
+                    {% endif %}
+                    {% endif %}
+                    <p><strong>Webhook Name:</strong> {{ flow.webhook_name }}</p>
+                    <div class="flow-actions">
+                        <a href="{{ url_for('notification_builder', edit=loop.index0) }}" class="btn-edit">Edit</a>
+                        <a href="{{ url_for('duplicate_flow_route', flow_name=flow.name) }}" class="btn-duplicate">Copy</a>
+                        <a href="{{ url_for('export_single_flow', flow_name=flow.name) }}" class="btn-export-single">📤</a>
+                        <a href="{{ url_for('delete_flow', index=loop.index0) }}" class="btn-delete">Delete</a>
+                    </div>
+                </div>
+            {% else %}
+                <p>No flows configured yet.</p>
+            {% endfor %}
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Notification Preview</h3>
+                <span class="close" onclick="closePreviewModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="preview-section">
+                    <h4>Message Content:</h4>
+                    <div id="preview-message" class="preview-message"></div>
+                </div>
+                <div class="preview-section" id="preview-embed-section" style="display: none;">
+                    <h4>Discord Embed:</h4>
+                    <div id="preview-embed" class="preview-embed"></div>
+                </div>
+                <div class="preview-section">
+                    <h4>Sample Data Used:</h4>
+                    <pre id="preview-data" class="preview-data"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Form Configuration Elements
+            const flowNameInput = document.getElementById('flow_name');
+            const webhookDisplay = document.getElementById('flow-name-display');
+            const webhookSection = document.querySelector('.webhook-info');
+            const acceptWebhooksCheckbox = document.getElementById('accept_webhooks');
+            const onIncomingOption = document.getElementById('on-incoming-option');
+            const timerOptions = document.getElementById('timer-options');
+            const changeOptions = document.getElementById('on-change-options');
+            const triggerTypeRadios = document.querySelectorAll('input[name="trigger_type"]');
+            const embedEnabledCheckbox = document.getElementById('embed_enabled');
+            const embedConfigSection = document.getElementById('embed-config');
+            const conditionEnabledCheckbox = document.getElementById('condition_enabled');
+            const conditionConfigSection = document.getElementById('condition-config');
+        
+            // Initialize form visibility
+            updateWebhookVisibility();
+            updateTriggerOptions();
+            updateEmbedVisibility();
+            updateConditionVisibility();
+            loadExistingFields();
+        
+            // Event listeners for form configuration
+            if (flowNameInput && webhookDisplay) {
+                flowNameInput.addEventListener('input', function() {
+                    webhookDisplay.value = this.value;
+                });
+            }
+        
+            if (acceptWebhooksCheckbox) {
+                acceptWebhooksCheckbox.addEventListener('change', function() {
+                    updateWebhookVisibility();
+                    updateTriggerOptions();
+                });
+            }
+        
+            // Update options when trigger type changes
+            triggerTypeRadios.forEach(radio => {
+                radio.addEventListener('change', updateTriggerOptions);
+            });
+            
+            // Update embed visibility when checkbox changes
+            if (embedEnabledCheckbox) {
+                embedEnabledCheckbox.addEventListener('change', updateEmbedVisibility);
+            }
+            
+            // Update condition visibility when checkbox changes
+            if (conditionEnabledCheckbox) {
+                conditionEnabledCheckbox.addEventListener('change', updateConditionVisibility);
+            }
+        
+            // Advanced API Settings: Dynamic headers
+            const headersList = document.getElementById('headers-list');
+            const addHeaderBtn = document.getElementById('add-header');
+            if (addHeaderBtn && headersList) {
+                addHeaderBtn.addEventListener('click', function() {
+                    const row = document.createElement('div');
+                    row.className = 'header-row';
+                    row.innerHTML = `
+                        <input type="text" name="header_key[]" placeholder="Header Name">
+                        <input type="text" name="header_value[]" placeholder="Header Value">
+                        <button type="button" class="remove-header">✖</button>
+                    `;
+                    headersList.appendChild(row);
+                });
+                headersList.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('remove-header')) {
+                        e.target.parentElement.remove();
+                    }
+                });
+            }
+
+            // Helper to append all header fields to FormData
+            function appendHeadersToFormData(formData) {
+                document.querySelectorAll('#headers-list .header-row').forEach(row => {
+                    const key = row.querySelector('input[name="header_key[]"]').value;
+                    const value = row.querySelector('input[name="header_value[]"]').value;
+                    if (key) {
+                        formData.append('header_key[]', key);
+                        formData.append('header_value[]', value);
+                    }
+                });
+            }
+
+            // Helper to append request body
+            function appendRequestBodyToFormData(formData) {
+                const body = document.getElementById('api_request_body')?.value;
+                if (body) formData.append('api_request_body', body);
+            }
+        
+            // Flow toggle functionality
+            document.querySelectorAll('.flow-toggle').forEach(toggle => {
+                toggle.addEventListener('change', function() {
+                    const flowCard = this.closest('.flow-card');
+                    const flowName = this.dataset.flowName;
+                    const isActive = this.checked;
+                    
+                    // Visual feedback while waiting for response
+                    flowCard.style.opacity = '0.7';
+                    flowCard.style.pointerEvents = 'none';
+                    
+                    fetch('/toggle_flow', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            flow_name: flowName,
+                            active: isActive
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (!data.success) throw new Error(data.error || 'Failed to update flow status');
+                        
+                        // Update UI on success
+                        flowCard.classList.toggle('flow-inactive', !isActive);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Revert toggle if failed
+                        this.checked = !isActive;
+                        alert(error.message);
+                    })
+                    .finally(() => {
+                        // Restore card interactivity
+                        flowCard.style.opacity = '';
+                        flowCard.style.pointerEvents = '';
+                    });
+                });
+            });
+        
+            // Helper functions
+            function updateWebhookVisibility() {
+                if (acceptWebhooksCheckbox && webhookSection) {
+                    webhookSection.style.display = acceptWebhooksCheckbox.checked ? 'block' : 'none';
+                }
+            }
+            
+            function updateEmbedVisibility() {
+                if (embedEnabledCheckbox && embedConfigSection) {
+                    embedConfigSection.style.display = embedEnabledCheckbox.checked ? 'block' : 'none';
+                }
+                
+                // Update message template required attribute
+                const messageTemplate = document.getElementById('message_template');
+                if (messageTemplate) {
+                    messageTemplate.required = !embedEnabledCheckbox.checked;
+                }
+            }
+            
+            function updateConditionVisibility() {
+                if (conditionEnabledCheckbox && conditionConfigSection) {
+                    conditionConfigSection.style.display = conditionEnabledCheckbox.checked ? 'block' : 'none';
+                }
+            }
+            
+            function loadExistingFields() {
+                // No longer needed - removed static/dynamic field functionality
+            }
+        
+            function updateTriggerOptions() {
+                const selectedTrigger = document.querySelector('input[name="trigger_type"]:checked')?.value || 'on_change';
+                
+                // Show/hide On Incoming option
+                if (onIncomingOption) {
+                    onIncomingOption.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
+                }
+        
+                // Show/hide Timer options
+                if (timerOptions) {
+                    timerOptions.style.display = selectedTrigger === 'timer' ? 'block' : 'none';
+                    const intervalInput = document.getElementById('interval');
+                    if (intervalInput) intervalInput.required = selectedTrigger === 'timer';
+                }
+        
+                // Show/hide Change detection options
+                if (changeOptions) {
+                    changeOptions.style.display = selectedTrigger === 'on_change' ? 'block' : 'none';
+                    const endpointInput = document.getElementById('endpoint');
+                    const fieldInput = document.getElementById('field');
+                    if (endpointInput) endpointInput.required = selectedTrigger === 'on_change';
+                    if (fieldInput) fieldInput.required = selectedTrigger === 'on_change';
+                }
+            }
+        
+            function copyWebhookUrl() {
+                const flowNameInput = document.getElementById('flow-name-display');
+                if (!flowNameInput?.value) return;
+                const url = `${window.location.origin}/api/webhook/${flowNameInput.value}`;
+                navigator.clipboard.writeText(url)
+                    .then(() => alert('Webhook URL copied to clipboard!'))
+                    .catch(err => console.error('Failed to copy:', err));
+            }
+            
+            // Make sendTest function globally accessible
+            window.sendTest = function() {
+                // Collect form data
+                const formData = new FormData();
+                formData.append('webhook_url', document.getElementById('webhook_url').value);
+                formData.append('flow_name', document.getElementById('flow_name').value || 'test_flow');
+                formData.append('webhook_name', document.getElementById('webhook_name').value || '');
+                formData.append('webhook_avatar', document.getElementById('webhook_avatar').value || '');
+                formData.append('message_template', document.getElementById('message_template').value);
+                formData.append('trigger_type', document.querySelector('input[name="trigger_type"]:checked')?.value || 'on_change');
+                formData.append('accept_webhooks', document.getElementById('accept_webhooks')?.checked || false);
+                formData.append('endpoint', document.getElementById('endpoint').value || '');
+                formData.append('field', document.getElementById('field').value || '');
+                formData.append('interval', document.getElementById('interval')?.value || '5');
+                formData.append('condition_enabled', document.getElementById('condition_enabled')?.checked || false);
+                formData.append('condition', document.getElementById('condition')?.value || '');
+                formData.append('active', false);
+                
+                // Add embed configuration
+                formData.append('embed_enabled', document.getElementById('embed_enabled')?.checked || false);
+                if (document.getElementById('embed_enabled')?.checked) {
+                    formData.append('embed_title', document.getElementById('embed_title')?.value || '');
+                    formData.append('embed_description', document.getElementById('embed_description')?.value || '');
+                    formData.append('embed_url', document.getElementById('embed_url')?.value || '');
+                    formData.append('embed_color', document.getElementById('embed_color')?.value || '#3498db');
+                    formData.append('embed_timestamp', document.querySelector('input[name="embed_timestamp"]')?.checked || false);
+                    formData.append('embed_footer_text', document.getElementById('embed_footer_text')?.value || '');
+                    formData.append('embed_footer_icon', document.getElementById('embed_footer_icon')?.value || '');
+                    formData.append('embed_author_name', document.getElementById('embed_author_name')?.value || '');
+                    formData.append('embed_author_icon', document.getElementById('embed_author_icon')?.value || '');
+                    formData.append('embed_author_url', document.getElementById('embed_author_url')?.value || '');
+                    formData.append('embed_thumbnail_url', document.getElementById('embed_thumbnail_url')?.value || '');
+                    formData.append('embed_image_url', document.getElementById('embed_image_url')?.value || '');
+                    
+                    // Add static fields
+                    document.querySelectorAll('input[name="embed_field_name[]"]').forEach((input, index) => {
+                        const valueInput = document.querySelectorAll('textarea[name="embed_field_value[]"]')[index];
+                        const inlineInput = document.querySelectorAll('input[name="embed_field_inline[]"]')[index];
+                        if (input.value && valueInput.value) {
+                            formData.append('embed_field_name[]', input.value);
+                            formData.append('embed_field_value[]', valueInput.value);
+                            formData.append('embed_field_inline[]', inlineInput?.checked || false);
+                        }
+                    });
+                    
+                    // Add dynamic fields
+                    document.querySelectorAll('input[name="dynamic_field_name[]"]').forEach((input, index) => {
+                        const pathInput = document.querySelectorAll('input[name="dynamic_field_path[]"]')[index];
+                        const formatInput = document.querySelectorAll('select[name="dynamic_field_format[]"]')[index];
+                        const inlineInput = document.querySelectorAll('input[name="dynamic_field_inline[]"]')[index];
+                        if (input.value && pathInput.value) {
+                            formData.append('dynamic_field_name[]', input.value);
+                            formData.append('dynamic_field_path[]', pathInput.value);
+                            formData.append('dynamic_field_format[]', formatInput?.value || 'text');
+                            formData.append('dynamic_field_inline[]', inlineInput?.checked || false);
+                        }
+                    });
+                }
+                
+                // Add advanced API settings
+                appendHeadersToFormData(formData);
+                appendRequestBodyToFormData(formData);
+                
+                // Show loading state
+                const testBtn = document.querySelector('.btn-test');
+                const originalText = testBtn.textContent;
+                testBtn.textContent = 'Sending...';
+                testBtn.disabled = true;
+                
+                // Send test request
+                fetch('/test_flow', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Test message sent successfully!');
+                    } else {
+                        alert('Test failed: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Test error:', error);
+                    alert('Test failed: ' + error.message);
+                })
+                .finally(() => {
+                    // Restore button state
+                    testBtn.textContent = originalText;
+                    testBtn.disabled = false;
+                });
+            };
+            
+            // Import file handling
+            document.getElementById('import-file')?.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    document.getElementById('import-submit').click();
+                }
+            });
+            
+            // Category filter functionality
+            const categoryFilter = document.getElementById('category-filter');
+            if (categoryFilter) {
+                categoryFilter.addEventListener('change', function() {
+                    const selectedCategory = this.value;
+                    const flowCards = document.querySelectorAll('.flow-card');
+                    let visibleCount = 0;
+                    
+                    flowCards.forEach(card => {
+                        const cardCategory = card.dataset.category;
+                        if (!selectedCategory || cardCategory === selectedCategory) {
+                            card.style.display = 'block';
+                            visibleCount++;
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                    
+                    // Update the flows count in the header
+                    const flowsHeader = document.querySelector('.flows-header h3');
+                    if (flowsHeader) {
+                        const totalFlows = document.querySelectorAll('.flow-card').length;
+                        flowsHeader.textContent = `Saved Flows (${visibleCount}/${totalFlows})`;
+                    }
+                });
+            }
+            
+            // Preview notification functionality
+            window.previewNotification = function() {
+                const formData = new FormData();
+                
+                // Get form values
+                formData.append('message_template', document.getElementById('message_template').value);
+                formData.append('embed_enabled', document.getElementById('embed_enabled').checked);
+                formData.append('trigger_type', document.querySelector('input[name="trigger_type"]:checked').value);
+                formData.append('endpoint', document.getElementById('endpoint').value);
+                formData.append('field', document.getElementById('field').value);
+                formData.append('condition_enabled', document.getElementById('condition_enabled')?.checked || false);
+                formData.append('condition', document.getElementById('condition')?.value || '');
+                
+                // Add embed fields if enabled
+                if (document.getElementById('embed_enabled').checked) {
+                    formData.append('embed_title', document.getElementById('embed_title').value);
+                    formData.append('embed_description', document.getElementById('embed_description').value);
+                    formData.append('embed_url', document.getElementById('embed_url').value);
+                    formData.append('embed_color', document.getElementById('embed_color').value);
+                    formData.append('embed_timestamp', document.querySelector('input[name="embed_timestamp"]').checked);
+                    formData.append('embed_footer_text', document.getElementById('embed_footer_text').value);
+                    formData.append('embed_footer_icon', document.getElementById('embed_footer_icon').value);
+                    formData.append('embed_author_name', document.getElementById('embed_author_name').value);
+                    formData.append('embed_author_icon', document.getElementById('embed_author_icon').value);
+                    formData.append('embed_author_url', document.getElementById('embed_author_url').value);
+                    formData.append('embed_thumbnail_url', document.getElementById('embed_thumbnail_url').value);
+                    formData.append('embed_image_url', document.getElementById('embed_image_url').value);
+                }
+                
+                // Add advanced API settings
+                appendHeadersToFormData(formData);
+                appendRequestBodyToFormData(formData);
+                
+                fetch('/preview_notification', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showPreviewModal(data);
+                    } else {
+                        alert('Error generating preview: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error generating preview');
+                });
+            };
+            
+            function showPreviewModal(data) {
+                document.getElementById('preview-message').textContent = data.message;
+                document.getElementById('preview-data').textContent = JSON.stringify(data.sample_data, null, 2);
+                
+                if (data.embed) {
+                    document.getElementById('preview-embed').innerHTML = formatEmbedPreview(data.embed);
+                    document.getElementById('preview-embed-section').style.display = 'block';
+                } else {
+                    document.getElementById('preview-embed-section').style.display = 'none';
+                }
+                
+                document.getElementById('preview-modal').style.display = 'block';
+            }
+            
+            window.closePreviewModal = function() {
+                document.getElementById('preview-modal').style.display = 'none';
+            };
+            
+            function formatEmbedPreview(embed) {
+                return `
+                    <div class="embed-preview" style="border-left: 4px solid ${embed.color || '#3498db'}; padding: 10px; background: #2f3136; border-radius: 4px; margin: 10px 0;">
+                        ${embed.title ? `<div style="font-weight: bold; color: #fff; margin-bottom: 5px;">${embed.title}</div>` : ''}
+                        ${embed.description ? `<div style="color: #dcddde; margin-bottom: 5px;">${embed.description}</div>` : ''}
+                        ${embed.timestamp ? `<div style="color: #72767d; font-size: 12px;">${new Date().toISOString()}</div>` : ''}
+                    </div>
+                `;
+            }
+            
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                const modal = document.getElementById('preview-modal');
+                if (event.target === modal) {
+                    closePreviewModal();
+                }
+            };
+        });
+        </script>
+{% endblock %}

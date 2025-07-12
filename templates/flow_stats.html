@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <section class="flow-statistics">
+        <h2>Flow Statistics</h2>
+        <p>Monitor the performance and usage of your notification flows.</p>
+        
+        {% if stats %}
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <h3>Total Flows</h3>
+                    <div class="stat-number">{{ stats|length }}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Active Flows</h3>
+                    <div class="stat-number">{{ stats.values() | selectattr('active', 'equalto', true) | list | length }}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Total Runs</h3>
+                    <div class="stat-number">{{ stats.values() | sum(attribute='total_runs') }}</div>
+                </div>
+            </div>
+            
+            <div class="flows-stats">
+                <h3>Individual Flow Statistics</h3>
+                <div class="flows-stats-grid">
+                    {% for flow_name, flow_stats in stats.items() %}
+                        <div class="flow-stat-card {% if not flow_stats.active %}flow-inactive{% endif %}">
+                            <div class="flow-stat-header">
+                                <h4>{{ flow_name }}</h4>
+                                <span class="flow-status {% if flow_stats.active %}active{% else %}inactive{% endif %}">
+                                    {% if flow_stats.active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="flow-stat-details">
+                                <div class="stat-row">
+                                    <span>Category:</span>
+                                    <span>{{ flow_stats.get('category', 'General') }}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Type:</span>
+                                    <span>{{ flow_stats.get('trigger_type', 'Unknown') }}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Total Runs:</span>
+                                    <span>{{ flow_stats.total_runs }}</span>
+                                </div>
+                                
+                                {% if flow_stats.timer_runs > 0 %}
+                                    <div class="stat-row">
+                                        <span>Timer Runs:</span>
+                                        <span>{{ flow_stats.timer_runs }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.change_runs > 0 %}
+                                    <div class="stat-row">
+                                        <span>Change Runs:</span>
+                                        <span>{{ flow_stats.change_runs }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.webhook_runs > 0 %}
+                                    <div class="stat-row">
+                                        <span>Webhook Runs:</span>
+                                        <span>{{ flow_stats.webhook_runs }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.test_runs > 0 %}
+                                    <div class="stat-row">
+                                        <span>Test Runs:</span>
+                                        <span>{{ flow_stats.test_runs }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.first_run %}
+                                    <div class="stat-row">
+                                        <span>First Run:</span>
+                                        <span>{{ flow_stats.first_run }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.last_run %}
+                                    <div class="stat-row">
+                                        <span>Last Run:</span>
+                                        <span>{{ flow_stats.last_run }}</span>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if flow_stats.get('last_value') %}
+                                    <div class="stat-row">
+                                        <span>Last Value:</span>
+                                        <span class="last-value">{{ flow_stats.last_value }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flow-stat-actions">
+                                <a href="{{ url_for('notification_builder', edit=loop.index0) }}" class="btn-edit">Edit</a>
+                                <a href="{{ url_for('duplicate_flow_route', flow_name=flow_name) }}" class="btn-duplicate">Duplicate</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            {% if recent_activity %}
+                <div class="recent-activity">
+                    <h3>Recent Activity (Last 24 Hours)</h3>
+                    <div class="activity-list">
+                        {% for flow_name, activities in recent_activity.items() %}
+                            <div class="activity-group">
+                                <h4>{{ flow_name }}</h4>
+                                {% for activity in activities[:5] %}
+                                    <div class="activity-item">
+                                        <span class="activity-time">{{ activity.timestamp }}</span>
+                                        <span class="activity-type activity-{{ activity.type }}">{{ activity.type }}</span>
+                                        <span class="activity-message">{{ activity.message[:100] }}{% if activity.message|length > 100 %}...{% endif %}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+            
+        {% else %}
+            <div class="no-stats">
+                <p>No flow statistics available. Create some flows and let them run to see statistics here.</p>
+                <a href="{{ url_for('notification_builder') }}" class="btn-primary">Create Your First Flow</a>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %} 

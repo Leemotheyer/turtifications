@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <section class="configuration">
+        <h2>System Configuration</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form action="{{ url_for('configure') }}" method="post">
+            <h3>Discord Webhook Settings</h3>
+            <div class="form-group">
+                <label for="webhook_url">Discord Webhook URL:</label>
+                <input type="url" id="webhook_url" name="webhook_url" 
+                       value="{{ config.discord_webhook }}" placeholder="https://discord.com/api/webhooks/..." required>
+                <small>This webhook will be used as the default for all notification flows</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="default_webhook_name">Default Webhook Name:</label>
+                <input type="text" id="default_webhook_name" name="default_webhook_name" 
+                       value="{{ config.default_webhook_name }}" placeholder="Notification Bot">
+                <small>Default name for Discord webhooks (can be overridden per flow)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="default_webhook_avatar">Default Webhook Avatar URL:</label>
+                <input type="url" id="default_webhook_avatar" name="default_webhook_avatar" 
+                       value="{{ config.default_webhook_avatar }}" placeholder="https://example.com/avatar.png">
+                <small>Default avatar for Discord webhooks (can be overridden per flow)</small>
+            </div>
+            
+            <h3>System Settings</h3>
+            <div class="form-group">
+                <label for="check_interval">Check Interval (seconds):</label>
+                <input type="number" id="check_interval" name="check_interval" 
+                       value="{{ config.check_interval }}" min="1" max="3600" required>
+                <small>How often to check API endpoints for changes (1-3600 seconds)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="log_retention">Log Retention (entries):</label>
+                <input type="number" id="log_retention" name="log_retention" 
+                       value="{{ config.log_retention }}" min="100" max="10000" required>
+                <small>Maximum number of log entries to keep (100-10000)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="notification_log_retention">Notification Log Retention (entries):</label>
+                <input type="number" id="notification_log_retention" name="notification_log_retention" 
+                       value="{{ config.notification_log_retention or 100 }}" min="10" max="1000" required>
+                <small>Maximum number of notification entries to keep (10-1000)</small>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit">Save Configuration</button>
+            </div>
+        </form>
+        
+        <div class="instructions">
+            <h3>How to get a Discord Webhook URL:</h3>
+            <ol>
+                <li>Go to your Discord server settings</li>
+                <li>Select "Integrations" then "Webhooks"</li>
+                <li>Click "New Webhook" or select an existing one</li>
+                <li>Copy the Webhook URL</li>
+                <li>Paste it above and click Save</li>
+            </ol>
+            
+            <h3>Configuration Tips:</h3>
+            <ul>
+                <li><strong>Check Interval:</strong> Lower values = faster detection but more API calls</li>
+                <li><strong>Log Retention:</strong> Higher values = more history but larger log files</li>
+                <li><strong>Notification Log Retention:</strong> Controls how many sent notifications are shown on the homepage</li>
+                <li><strong>Webhook Name/Avatar:</strong> These will be used as defaults for new flows</li>
+            </ul>
+        </div>
+    </section>
+{% endblock %}
