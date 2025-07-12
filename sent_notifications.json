@@ -25,5 +25,14 @@
     "webhook_name": "turtifications",
     "type": "sent",
     "category": "Notifications"
+  },
+  {
+    "timestamp": "2025-07-12 23:37:03",
+    "flow_name": "test",
+    "message_content": "fart\r\n{\n  \"args\": {},\n  \"headers\": {\n    \"Accept\": \"*/*\",\n    \"Accept-Encoding\": \"gzip, deflate\",\n    \"Host\": \"httpbin.org\",\n    \"User-Agent\": \"python-requests/2.31.0\",\n    \"X-Amzn-Trace-Id\": \"Root=1-6872e38e-5a5a76a5359fd144318c2c28\"\n  },\n  \"origin\": \"146.90.27.59\",\n  \"url\": \"https://httpbin.org/get\",\n  \"value\": null,\n  \"api_data\": {\n    \"args\": {},\n    \"headers\": {\n      \"Accept\": \"*/*\",\n      \"Accept-Encoding\": \"gzip, deflate\",\n      \"Host\": \"httpbin.org\",\n      \"User-Agent\": \"python-requests/2.31.0\",\n      \"X-Amzn-Trace-Id\": \"Root=1-6872e38e-5a5a76a5359fd144318c2c28\"\n    },\n    \"origin\": \"146.90.27.59\",\n    \"url\": \"https://httpbin.org/get\"\n  }\n}\r\nfart",
+    "embed_info": null,
+    "webhook_name": "turtifications",
+    "type": "sent",
+    "category": "Notifications"
   }
 ]
