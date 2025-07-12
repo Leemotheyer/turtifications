@@ -32,23 +32,6 @@ python app.py
 
 Visit `http://localhost:5000` and configure your Discord webhook in the "Configure" page.
 
-### Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Windows
-test.bat
-
-# Unix/Linux/Mac
-./test.sh
-
-# Manual
-python tests/test_app.py
-```
-
-See `tests/TESTING.md` for detailed testing information.
-
 ## 📖 Usage
 
 ### Creating a Flow
@@ -67,7 +50,6 @@ See `tests/TESTING.md` for detailed testing information.
 {old_value}              // Previous value (change detection)
 {result['downloaded_issues']}  // API data access
 {result['0']['web_title']}     // Array access
-{data['size']/1024/1024:.2f}   // File size formatting
 ```
 
 ### Flow Templates
