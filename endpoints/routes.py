@@ -329,7 +329,8 @@ def init_routes(app):
             config['notification_flows'].pop(index)
             save_config(config)
             flash('Notification flow deleted', 'success')
-        return redirect(url_for('notification_builder'))
+        # Redirect to the referring page, or statistics if not available
+        return redirect(request.referrer)
 
     @app.route('/test_flow', methods=['POST'])
     def test_flow():

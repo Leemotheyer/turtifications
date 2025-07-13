@@ -8,28 +8,39 @@ from datetime import datetime, timedelta
 from functions.config import get_logs
 
 def get_flow_statistics():
-    """Get statistics for all flows"""
+    """Get statistics for all flows (including those that have never run)"""
     logs = get_logs()
-    flows = get_flow_usage_from_logs(logs)
-    
-    # Get current config to match with flow names
+    log_stats = get_flow_usage_from_logs(logs)
+
     from functions.config import get_config
     config = get_config()
     all_flows = {flow['name']: flow for flow in config.get('notification_flows', [])}
-    
-    # Enhance flow stats with current config data
-    for flow_name, stats in flows.items():
-        if flow_name in all_flows:
-            flow_config = all_flows[flow_name]
-            stats.update({
-                'active': flow_config.get('active', False),
-                'trigger_type': flow_config.get('trigger_type', 'unknown'),
-                'category': flow_config.get('category', 'General'),
-                'last_run': flow_config.get('last_run'),
-                'last_value': flow_config.get('last_value')
-            })
-    
-    return flows
+
+    # Build a complete stats dict for all flows
+    all_stats = {}
+    for flow_name, flow_config in all_flows.items():
+        # Start with log stats if present, else zero/defaults
+        stats = log_stats.get(flow_name, {
+            'total_runs': 0,
+            'timer_runs': 0,
+            'change_runs': 0,
+            'webhook_runs': 0,
+            'test_runs': 0,
+            'first_run': None,
+            'last_run': None,
+            'successful_runs': 0,
+            'failed_runs': 0
+        })
+        # Always update with config info
+        stats.update({
+            'active': flow_config.get('active', False),
+            'trigger_type': flow_config.get('trigger_type', 'unknown'),
+            'category': flow_config.get('category', 'General'),
+            'last_run': flow_config.get('last_run', stats.get('last_run')),
+            'last_value': flow_config.get('last_value')
+        })
+        all_stats[flow_name] = stats
+    return all_stats
 
 def get_flow_usage_from_logs(logs):
     """Extract flow usage statistics from logs"""
