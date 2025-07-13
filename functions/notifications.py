@@ -2,9 +2,9 @@ import requests
 import json
 import time
 from datetime import datetime
-from config import get_config, save_config
-from utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
-from embed_utils import create_discord_embed
+from functions.config import get_config, save_config
+from functions.utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
+from functions.embed_utils import create_discord_embed
 
 def extract_field_value(data, field_path):
     """Extract field value using bracket notation (e.g., result['0']['web_title'])"""

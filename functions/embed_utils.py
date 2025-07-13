@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime
-from utils import format_message_template
+from functions.utils import format_message_template
 
 def create_discord_embed(embed_config, data=None):
     """Create a Discord embed from configuration and data"""

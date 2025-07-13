@@ -4,10 +4,10 @@ API endpoints for the notification organizer app
 
 from flask import jsonify, request
 from datetime import datetime, timedelta
-from config import get_config, get_logs
-from flow_stats import get_flow_statistics, get_recent_flow_activity
-from notifications import send_discord_notification
-from utils import get_notification_logs
+from functions.config import get_config, get_logs, get_log_stats
+from functions.flow_stats import get_flow_statistics, get_recent_flow_activity
+from functions.notifications import send_discord_notification
+from functions.utils import get_notification_logs
 import json
 
 def init_api_routes(app):
@@ -166,7 +166,6 @@ def init_api_routes(app):
     @app.route('/api/logs/stats')
     def api_log_stats():
         """Get log statistics"""
-        from config import get_log_stats
         stats = get_log_stats()
         
         return jsonify(stats)

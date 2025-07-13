@@ -4,12 +4,12 @@ import requests
 import json
 import io
 from datetime import datetime
-from config import get_config, save_config, get_logs, clear_logs, get_log_stats
-from utils import log_notification, get_notification_logs
-from notifications import send_discord_notification, make_api_request
-from embed_utils import validate_embed_config
-from flow_templates import FLOW_TEMPLATES, get_template_categories, get_templates_by_category, get_template
-from flow_stats import get_flow_statistics, get_flow_success_rate, get_recent_flow_activity, export_flow_config, import_flow_config, duplicate_flow
+from functions.config import get_config, save_config, get_logs, clear_logs, get_log_stats
+from functions.utils import log_notification, get_notification_logs, format_message_template
+from functions.notifications import send_discord_notification, make_api_request
+from functions.embed_utils import validate_embed_config, create_discord_embed
+from functions.flow_templates import FLOW_TEMPLATES, get_template_categories, get_templates_by_category, get_template
+from functions.flow_stats import get_flow_statistics, get_flow_success_rate, get_recent_flow_activity, export_flow_config, import_flow_config, duplicate_flow
 
 def init_routes(app):
     """Initialize all Flask routes"""
@@ -185,6 +185,7 @@ def init_routes(app):
                 
                 trigger_type = request.form.get('trigger_type', 'on_change')
                 accept_webhooks = request.form.get('accept_webhooks', 'false') == 'true'
+                require_webhook_secret = request.form.get('require_webhook_secret', 'false') == 'true'
                 
                 # Validate trigger-specific requirements
                 if trigger_type == 'on_change':
@@ -250,11 +251,15 @@ def init_routes(app):
                     'api_request_body': api_request_body,
                 }
                 
-                # Preserve existing webhook_secret if editing and webhooks are still accepted
-                if editing_flow and accept_webhooks and editing_flow.get('webhook_secret'):
-                    updated_flow['webhook_secret'] = editing_flow['webhook_secret']
-                elif accept_webhooks:
-                    updated_flow['webhook_secret'] = secrets.token_urlsafe(16)
+                # Handle webhook_secret logic
+                if accept_webhooks and require_webhook_secret:
+                    if editing_flow and editing_flow.get('webhook_secret'):
+                        updated_flow['webhook_secret'] = editing_flow['webhook_secret']
+                    else:
+                        updated_flow['webhook_secret'] = secrets.token_urlsafe(16)
+                # If not required, remove any existing secret
+                elif 'webhook_secret' in updated_flow:
+                    del updated_flow['webhook_secret']
                 
                 # Preserve existing tracking data if editing
                 if editing_flow:
@@ -689,7 +694,6 @@ def init_routes(app):
             api_request_body = request.form.get('api_request_body', '')
 
             # Format the message
-            from utils import format_message_template
             formatted_message = format_message_template(message_template, sample_data)
             
             # Create embed preview if enabled
@@ -713,7 +717,6 @@ def init_routes(app):
                     'dynamic_fields': []
                 }
                 
-                from embed_utils import create_discord_embed
                 embed_preview = create_discord_embed(embed_config, sample_data)
             
             return jsonify({

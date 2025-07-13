@@ -58,6 +58,13 @@
                            {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
                     Accept incoming webhooks
                 </label>
+                <div id="require-secret-container" style="display: none; margin-top: 8px;">
+                    <label>
+                        <input type="checkbox" name="require_webhook_secret" id="require_webhook_secret" value="true"
+                               {% if editing_flow and editing_flow.webhook_secret %}checked{% endif %}>
+                        Require secret key for incoming webhooks (X-Secret header)
+                    </label>
+                </div>
                 <div class="webhook-info" style="display: none;">
                     <p>Use this URL to receive webhooks from external services:</p>
                     <div class="webhook-url">
@@ -415,7 +422,9 @@
                     <p><strong>Webhook Secret:</strong> {{ flow.webhook_secret }}</p>
                     {% endif %}
                     {% endif %}
+                    {% if flow.webhook_name %}
                     <p><strong>Webhook Name:</strong> {{ flow.webhook_name }}</p>
+                    {% endif %}
                     <div class="flow-actions">
                         <a href="{{ url_for('notification_builder', edit=loop.index0) }}" class="btn-edit">Edit</a>
                         <a href="{{ url_for('duplicate_flow_route', flow_name=flow.name) }}" class="btn-duplicate">Copy</a>
@@ -462,6 +471,8 @@
             const webhookDisplay = document.getElementById('flow-name-display');
             const webhookSection = document.querySelector('.webhook-info');
             const acceptWebhooksCheckbox = document.getElementById('accept_webhooks');
+            const requireSecretContainer = document.getElementById('require-secret-container');
+            const requireSecretCheckbox = document.getElementById('require_webhook_secret');
             const onIncomingOption = document.getElementById('on-incoming-option');
             const timerOptions = document.getElementById('timer-options');
             const changeOptions = document.getElementById('on-change-options');
@@ -489,6 +500,15 @@
                 acceptWebhooksCheckbox.addEventListener('change', function() {
                     updateWebhookVisibility();
                     updateTriggerOptions();
+                });
+            }
+
+            if (requireSecretContainer && requireSecretCheckbox) {
+                requireSecretContainer.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
+                requireSecretCheckbox.addEventListener('change', function() {
+                    // This checkbox is not directly tied to a form field,
+                    // so we don't need to append it to FormData.
+                    // It's just for UI feedback.
                 });
             }
         
@@ -595,6 +615,9 @@
             function updateWebhookVisibility() {
                 if (acceptWebhooksCheckbox && webhookSection) {
                     webhookSection.style.display = acceptWebhooksCheckbox.checked ? 'block' : 'none';
+                }
+                if (requireSecretContainer && requireSecretCheckbox) {
+                    requireSecretContainer.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
                 }
             }
             

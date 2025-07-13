@@ -1,19 +1,19 @@
 import json
 import re
 from datetime import datetime
-from config import get_logs, save_logs
+from functions.config import get_logs, save_logs, get_config
 
 def get_notification_logs():
     """Get notification-specific logs"""
     try:
-        with open('sent_notifications.json', 'r') as f:
+        with open('data/sent_notifications.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         return []
 
 def save_notification_logs(logs):
     """Save notification-specific logs"""
-    with open('sent_notifications.json', 'w') as f:
+    with open('data/sent_notifications.json', 'w') as f:
         json.dump(logs, f, indent=2)
 
 def detect_log_category(message):
@@ -94,7 +94,6 @@ def log_notification_sent(flow_name, message_content, embed_info=None, webhook_n
     logs.append(notification_entry)
     
     # Get configurable log retention limit
-    from config import get_config
     config = get_config()
     notification_log_retention = config.get('notification_log_retention', 100)  # Default to 100
     
@@ -126,7 +125,6 @@ def log_notification(message, category=None):
     logs.append(log_entry)
     
     # Get configurable log retention limit
-    from config import get_config
     config = get_config()
     log_retention = config.get('log_retention', 1000)  # Default to 1000
     

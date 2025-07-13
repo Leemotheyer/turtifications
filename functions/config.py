@@ -3,8 +3,8 @@ import os
 from datetime import datetime
 
 # Configuration files
-CONFIG_FILE = 'config.json'
-LOG_FILE = 'notification_logs.json'
+CONFIG_FILE = 'data/config.json'
+LOG_FILE = 'data/notification_logs.json'
 
 def initialize_files():
     """Initialize config and log files if they don't exist"""
@@ -13,6 +13,9 @@ def initialize_files():
         with open(CONFIG_FILE, 'w') as f:
             json.dump({
                 "discord_webhook": "",
+                "check_interval": 5,
+                "log_retention": 1000,
+                "notification_log_retention": 100
             }, f)
 
     # Initialize log file if it doesn't exist

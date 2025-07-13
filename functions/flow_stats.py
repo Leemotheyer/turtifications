@@ -5,7 +5,7 @@ Flow statistics and management features
 import json
 import time
 from datetime import datetime, timedelta
-from config import get_logs
+from functions.config import get_logs
 
 def get_flow_statistics():
     """Get statistics for all flows"""
@@ -13,7 +13,7 @@ def get_flow_statistics():
     flows = get_flow_usage_from_logs(logs)
     
     # Get current config to match with flow names
-    from config import get_config
+    from functions.config import get_config
     config = get_config()
     all_flows = {flow['name']: flow for flow in config.get('notification_flows', [])}
     
@@ -171,7 +171,7 @@ def get_recent_flow_activity(hours=24):
 
 def export_flow_config(flow_name=None):
     """Export flow configuration(s) to JSON"""
-    from config import get_config
+    from functions.config import get_config
     config = get_config()
     
     if flow_name:
@@ -199,7 +199,7 @@ def export_flow_config(flow_name=None):
 
 def import_flow_config(import_data):
     """Import flow configuration from JSON"""
-    from config import get_config, save_config
+    from functions.config import get_config, save_config
     config = get_config()
     
     if 'flow' in import_data:
@@ -242,7 +242,7 @@ def import_flow_config(import_data):
 
 def duplicate_flow(flow_name):
     """Duplicate an existing flow"""
-    from config import get_config, save_config
+    from functions.config import get_config, save_config
     config = get_config()
     
     for flow in config.get('notification_flows', []):

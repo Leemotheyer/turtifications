@@ -27,6 +27,9 @@ COPY . .
 # Create necessary directories for data files
 RUN mkdir -p /app/data
 
+# Set data directory as a volume for Docker binding
+VOLUME ["/app/data"]
+
 # Expose port 5000
 EXPOSE 5000
 

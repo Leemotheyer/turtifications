@@ -2,10 +2,10 @@ from flask import Flask
 import secrets
 import os
 from threading import Thread
-from config import initialize_files
-from routes import init_routes
-from api import init_api_routes
-from notifications import check_endpoints
+from functions.config import initialize_files
+from endpoints.routes import init_routes
+from endpoints.api import init_api_routes
+from functions.notifications import check_endpoints
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -27,4 +27,4 @@ if __name__ == '__main__':
         monitor_thread.daemon = True
         monitor_thread.start()
     
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
