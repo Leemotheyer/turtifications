@@ -105,7 +105,7 @@
                 <label for="endpoint">API Endpoint:</label>
                 <input type="url" id="endpoint" name="endpoint" 
                        value="{{ editing_flow.endpoint if editing_flow else '' }}"
-                       placeholder="https://api.example.com/data" required>
+                       placeholder="https://api.example.com/data">
                 <small>Optional for timer triggers, required for change detection</small>
                 
                 <label for="field">Field to Use:</label>
@@ -356,6 +356,7 @@
                     <button type="submit">Save Flow</button>
                     <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
                 {% endif %}
+                <div id="toast-container"></div>
             </div>
         </form>
             </section>
@@ -774,14 +775,14 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Test message sent successfully!');
+                        showToast('Test message sent successfully!', 'success');
                     } else {
-                        alert('Test failed: ' + (data.error || 'Unknown error'));
+                        showToast('Test failed: ' + (data.error || 'Unknown error'), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Test error:', error);
-                    alert('Test failed: ' + error.message);
+                    showToast('Test failed: ' + error.message, 'error');
                 })
                 .finally(() => {
                     // Restore button state

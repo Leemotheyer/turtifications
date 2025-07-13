@@ -26,5 +26,18 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+    <script>
+    // Toast notification system
+    window.showToast = function(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    };
+    </script>
 </body>
 </html>
