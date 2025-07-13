@@ -105,7 +105,7 @@
                 <label for="endpoint">API Endpoint:</label>
                 <input type="url" id="endpoint" name="endpoint" 
                        value="{{ editing_flow.endpoint if editing_flow else '' }}"
-                       placeholder="https://api.example.com/data">
+                       placeholder="https://api.example.com/data" required>
                 <small>Optional for timer triggers, required for change detection</small>
                 
                 <label for="field">Field to Use:</label>
@@ -910,6 +910,88 @@
                     closePreviewModal();
                 }
             };
+
+            // Inline validation helpers
+            function showFieldError(input, message) {
+                let error = input.parentElement.querySelector('.field-error');
+                if (!error) {
+                    error = document.createElement('div');
+                    error.className = 'field-error';
+                    input.parentElement.appendChild(error);
+                }
+                error.textContent = message;
+                input.classList.add('input-error');
+            }
+            function clearFieldError(input) {
+                let error = input.parentElement.querySelector('.field-error');
+                if (error) error.remove();
+                input.classList.remove('input-error');
+            }
+            // Main form validation
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    let hasError = false;
+                    // Always required
+                    const webhookUrl = document.getElementById('webhook_url');
+                    const flowName = document.getElementById('flow_name');
+                    if (webhookUrl && !webhookUrl.value.trim()) {
+                        showFieldError(webhookUrl, 'This field is required.');
+                        hasError = true;
+                    } else if (webhookUrl) {
+                        clearFieldError(webhookUrl);
+                    }
+                    if (flowName && !flowName.value.trim()) {
+                        showFieldError(flowName, 'This field is required.');
+                        hasError = true;
+                    } else if (flowName) {
+                        clearFieldError(flowName);
+                    }
+                    // Message template or embed required
+                    const messageTemplate = document.getElementById('message_template');
+                    const embedEnabled = document.getElementById('embed_enabled');
+                    if (messageTemplate && (!messageTemplate.value.trim() && !(embedEnabled && embedEnabled.checked))) {
+                        showFieldError(messageTemplate, 'Message template is required (or enable Discord embed).');
+                        hasError = true;
+                    } else if (messageTemplate) {
+                        clearFieldError(messageTemplate);
+                    }
+                    // Trigger-specific required fields
+                    const triggerType = document.querySelector('input[name="trigger_type"]:checked')?.value;
+                    if (triggerType === 'on_change') {
+                        const endpoint = document.getElementById('endpoint');
+                        const field = document.getElementById('field');
+                        if (endpoint && !endpoint.value.trim()) {
+                            showFieldError(endpoint, 'API Endpoint is required for change detection.');
+                            hasError = true;
+                        } else if (endpoint) {
+                            clearFieldError(endpoint);
+                        }
+                        if (field && !field.value.trim()) {
+                            showFieldError(field, 'Field is required for change detection.');
+                            hasError = true;
+                        } else if (field) {
+                            clearFieldError(field);
+                        }
+                    }
+                    if (triggerType === 'timer') {
+                        const interval = document.getElementById('interval');
+                        if (interval && (!interval.value || isNaN(interval.value) || parseInt(interval.value) < 1)) {
+                            showFieldError(interval, 'Interval is required for timer triggers.');
+                            hasError = true;
+                        } else if (interval) {
+                            clearFieldError(interval);
+                        }
+                    }
+                    if (hasError) {
+                        // Focus the first error
+                        const firstError = form.querySelector('.input-error');
+                        if (firstError) firstError.focus();
+                        event.preventDefault();
+                        return false;
+                    }
+                });
+            }
         });
         </script>
 {% endblock %}
