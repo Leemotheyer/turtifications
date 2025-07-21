@@ -15,7 +15,8 @@ def initialize_files():
                 "discord_webhook": "",
                 "check_interval": 5,
                 "log_retention": 1000,
-                "notification_log_retention": 100
+                "notification_log_retention": 100,
+                "user_variables": {}
             }, f)
 
     # Initialize log file if it doesn't exist
@@ -26,7 +27,10 @@ def initialize_files():
 def get_config():
     """Get configuration from file"""
     with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
+        config = json.load(f)
+    if 'user_variables' not in config:
+        config['user_variables'] = {}
+    return config
 
 def save_config(config):
     """Save configuration to file with proper serialization"""

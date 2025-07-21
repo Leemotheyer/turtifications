@@ -3,24 +3,24 @@ import re
 from datetime import datetime
 from functions.utils import format_message_template
 
-def create_discord_embed(embed_config, data=None):
-    """Create a Discord embed from configuration and data"""
+def create_discord_embed(embed_config, data=None, user_variables=None):
+    """Create a Discord embed from configuration and data, with user variable support"""
     if not embed_config or not embed_config.get('enabled', False):
         return None
-    
+    user_variables = user_variables or {}
     embed = {}
     
     # Title
     if embed_config.get('title'):
-        embed['title'] = format_message_template(embed_config['title'], data or {})
+        embed['title'] = format_message_template(embed_config['title'], data or {}, user_variables)
     
     # Description
     if embed_config.get('description'):
-        embed['description'] = format_message_template(embed_config['description'], data or {})
+        embed['description'] = format_message_template(embed_config['description'], data or {}, user_variables)
     
     # URL
     if embed_config.get('url'):
-        embed['url'] = format_message_template(embed_config['url'], data or {})
+        embed['url'] = format_message_template(embed_config['url'], data or {}, user_variables)
     
     # Color (convert hex to integer)
     if embed_config.get('color'):
@@ -39,32 +39,32 @@ def create_discord_embed(embed_config, data=None):
     if embed_config.get('footer_text') or embed_config.get('footer_icon'):
         footer = {}
         if embed_config.get('footer_text'):
-            footer['text'] = format_message_template(embed_config['footer_text'], data or {})
+            footer['text'] = format_message_template(embed_config['footer_text'], data or {}, user_variables)
         if embed_config.get('footer_icon'):
-            footer['icon_url'] = format_message_template(embed_config['footer_icon'], data or {})
+            footer['icon_url'] = format_message_template(embed_config['footer_icon'], data or {}, user_variables)
         embed['footer'] = footer
     
     # Author
     if embed_config.get('author_name') or embed_config.get('author_icon') or embed_config.get('author_url'):
         author = {}
         if embed_config.get('author_name'):
-            author['name'] = format_message_template(embed_config['author_name'], data or {})
+            author['name'] = format_message_template(embed_config['author_name'], data or {}, user_variables)
         if embed_config.get('author_icon'):
-            author['icon_url'] = format_message_template(embed_config['author_icon'], data or {})
+            author['icon_url'] = format_message_template(embed_config['author_icon'], data or {}, user_variables)
         if embed_config.get('author_url'):
-            author['url'] = format_message_template(embed_config['author_url'], data or {})
+            author['url'] = format_message_template(embed_config['author_url'], data or {}, user_variables)
         embed['author'] = author
     
     # Thumbnail
     if embed_config.get('thumbnail_url'):
         embed['thumbnail'] = {
-            'url': format_message_template(embed_config['thumbnail_url'], data or {})
+            'url': format_message_template(embed_config['thumbnail_url'], data or {}, user_variables)
         }
     
     # Image
     if embed_config.get('image_url'):
         embed['image'] = {
-            'url': format_message_template(embed_config['image_url'], data or {})
+            'url': format_message_template(embed_config['image_url'], data or {}, user_variables)
         }
     
     # Fields
@@ -73,15 +73,15 @@ def create_discord_embed(embed_config, data=None):
         for field_config in embed_config['fields']:
             if field_config.get('name') and field_config.get('value'):
                 field = {
-                    'name': format_message_template(field_config['name'], data or {}),
-                    'value': format_message_template(field_config['value'], data or {}),
+                    'name': format_message_template(field_config['name'], data or {}, user_variables),
+                    'value': format_message_template(field_config['value'], data or {}, user_variables),
                     'inline': field_config.get('inline', False)
                 }
                 fields.append(field)
     
     # Add dynamic fields based on data if configured
     if embed_config.get('dynamic_fields') and data:
-        dynamic_fields = parse_dynamic_fields(embed_config['dynamic_fields'], data)
+        dynamic_fields = parse_dynamic_fields(embed_config['dynamic_fields'], data, user_variables)
         fields.extend(dynamic_fields)
     
     if fields:
@@ -89,7 +89,7 @@ def create_discord_embed(embed_config, data=None):
     
     return embed
 
-def parse_dynamic_fields(fields_config, data):
+def parse_dynamic_fields(fields_config, data, user_variables):
     """Parse dynamic field configurations and create embed fields"""
     fields = []
     
@@ -113,7 +113,7 @@ def parse_dynamic_fields(fields_config, data):
             formatted_value = format_field_value(value, field_format)
             
             field = {
-                'name': format_message_template(field_name, data),
+                'name': format_message_template(field_name, data, user_variables),
                 'value': formatted_value,
                 'inline': field_inline
             }

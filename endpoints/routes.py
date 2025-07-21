@@ -71,36 +71,38 @@ def init_routes(app):
     @app.route('/configure', methods=['GET', 'POST'])
     def configure():
         config = get_config()
-        
+        user_variables = config.get('user_variables', {})
         if request.method == 'POST':
             try:
                 # Discord webhook settings
                 webhook_url = request.form.get('webhook_url', '').strip()
                 default_webhook_name = request.form.get('default_webhook_name', 'Notification Bot').strip()
                 default_webhook_avatar = request.form.get('default_webhook_avatar', '').strip()
-                
                 # System settings
                 check_interval = int(request.form.get('check_interval', 5))
                 log_retention = int(request.form.get('log_retention', 1000))
                 notification_log_retention = int(request.form.get('notification_log_retention', 100))
-                
+                # User variables
+                var_keys = request.form.getlist('var_key[]')
+                var_vals = request.form.getlist('var_value[]')
+                user_variables = {}
+                for k, v in zip(var_keys, var_vals):
+                    k = k.strip()
+                    if k:
+                        user_variables[k] = v
                 # Validate inputs
                 if not webhook_url:
                     flash('Discord webhook URL is required', 'error')
                     return redirect(url_for('configure'))
-                
                 if check_interval < 1 or check_interval > 3600:
                     flash('Check interval must be between 1 and 3600 seconds', 'error')
                     return redirect(url_for('configure'))
-                
                 if log_retention < 100 or log_retention > 10000:
                     flash('Log retention must be between 100 and 10000 entries', 'error')
                     return redirect(url_for('configure'))
-                
                 if notification_log_retention < 10 or notification_log_retention > 1000:
                     flash('Notification log retention must be between 10 and 1000 entries', 'error')
                     return redirect(url_for('configure'))
-                
                 # Update configuration
                 config['discord_webhook'] = webhook_url
                 config['default_webhook_name'] = default_webhook_name
@@ -108,20 +110,18 @@ def init_routes(app):
                 config['check_interval'] = check_interval
                 config['log_retention'] = log_retention
                 config['notification_log_retention'] = notification_log_retention
-                
+                config['user_variables'] = user_variables
                 save_config(config)
                 log_notification("System configuration updated")
                 flash('Configuration saved successfully!', 'success')
                 return redirect(url_for('configure'))
-                
             except ValueError as e:
                 flash('Invalid input values. Please check your settings.', 'error')
                 return redirect(url_for('configure'))
             except Exception as e:
                 flash(f'An error occurred: {str(e)}', 'error')
                 return redirect(url_for('configure'))
-        
-        return render_template('configure.html', config=config)
+        return render_template('configure.html', config=config, user_variables=user_variables)
 
     @app.route('/logs')
     def show_logs():

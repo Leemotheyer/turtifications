@@ -88,7 +88,8 @@ def send_discord_notification(message, flow=None, data=None):
                     message_data = {}
                 
                 # Use the new template formatter
-                message = format_message_template(message, message_data)
+                user_variables = config.get('user_variables', {})
+                message = format_message_template(message, message_data, user_variables)
                 
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 log_notification(f"Data formatting error: {str(e)}")
@@ -97,10 +98,11 @@ def send_discord_notification(message, flow=None, data=None):
         # Check if embed is enabled and configured
         embed = None
         if flow and flow.get('embed_config', {}).get('enabled', False):
-            embed = create_discord_embed(flow['embed_config'], message_data)
+            embed = create_discord_embed(flow['embed_config'], message_data, user_variables)
         
         # Get webhook name and avatar, using defaults if empty
         config = get_config()
+        user_variables = config.get('user_variables', {})
         webhook_name = flow.get('webhook_name', '') if flow else ''
         webhook_avatar = flow.get('webhook_avatar', '') if flow else ''
         

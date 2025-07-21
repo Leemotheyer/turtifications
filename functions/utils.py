@@ -135,8 +135,9 @@ def log_notification(message, category=None):
     # Save logs
     save_logs(logs)
 
-def format_message_template(template, data):
-    """Simple and reliable message template formatter"""
+def format_message_template(template, data, user_variables=None):
+    """Simple and reliable message template formatter with user variable support"""
+    user_variables = user_variables or {}
     
     def get_nested_value(data_dict, path):
         """Safely get nested dictionary value using dot notation"""
@@ -223,6 +224,13 @@ def format_message_template(template, data):
                 if isinstance(data[var_expr], dict):
                     return json.dumps(data[var_expr], indent=2)
                 return str(data[var_expr])
+            
+            # Handle user variables: {var:your_variable}
+            if var_expr.startswith('var:'):
+                var_name = var_expr[4:]
+                if var_name in user_variables:
+                    return str(user_variables[var_name])
+                return 'N/A'
             
             return "N/A"
             

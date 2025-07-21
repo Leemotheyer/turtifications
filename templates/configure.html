@@ -37,6 +37,19 @@
                 <small>Default avatar for Discord webhooks (can be overridden per flow)</small>
             </div>
             
+            <h3>Saved Variables</h3>
+            <div id="variables-list">
+                {% for k, v in user_variables.items() %}
+                <div class="variable-row">
+                    <input type="text" name="var_key[]" value="{{ k }}" placeholder="Variable Name" autocomplete="off">
+                    <input type="text" name="var_value[]" value="{{ v }}" placeholder="Value" autocomplete="off">
+                    <button type="button" class="remove-variable" onclick="this.parentElement.remove()">✖</button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" id="add-variable">+ Add Variable</button>
+            <small>You can use these variables message templates as <code>{var:your_variable_name}</code></small>
+            
             <h3>System Settings</h3>
             <div class="form-group">
                 <label for="check_interval">Check Interval (seconds):</label>
@@ -83,4 +96,30 @@
             </ul>
         </div>
     </section>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var addBtn = document.getElementById('add-variable');
+        if (addBtn) {
+            addBtn.onclick = function() {
+                var row = document.createElement('div');
+                row.className = 'variable-row';
+                row.innerHTML = `<input type="text" name="var_key[]" placeholder="Variable Name" autocomplete="off">
+                    <input type="text" name="var_value[]" placeholder="Value" autocomplete="off">
+                    <button type="button" class="remove-variable" onclick="this.parentElement.remove()">✖</button>`;
+                document.getElementById('variables-list').appendChild(row);
+            };
+        }
+    });
+    </script>
+    <style>
+    .variable-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .variable-row input[type="text"] { flex: 1 1 120px; }
+    .remove-variable { background: #eee; border: none; color: #c0392b; font-size: 1.1em; border-radius: 3px; cursor: pointer; padding: 0 8px; }
+    .remove-variable:hover { background: #c0392b; color: #fff; }
+    #add-variable { margin-bottom: 10px; margin-top: 4px; }
+    </style>
 {% endblock %}
