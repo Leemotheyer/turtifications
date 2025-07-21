@@ -23,342 +23,333 @@
                 {% endwith %}
                 
                 <form method="post">
-            <h3>Webhook Configuration</h3>
-            <div class="form-group">
-                <label for="webhook_url">Discord Webhook URL:</label>
-                <input type="url" id="webhook_url" name="webhook_url" 
-                       value="{{ editing_flow.webhook_url if editing_flow else webhook_url }}" 
-                       placeholder="https://discord.com/api/webhooks/..." required>
-            </div>
-            
-            <h3>Notification Flow</h3>
-            <div class="form-group">
-                <label for="flow_name">Flow Name:</label>
-                <input type="text" id="flow_name" name="flow_name" 
-                       value="{{ editing_flow.name if editing_flow else (template_data.name if template_data else '') }}" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="category">Category:</label>
-                <select id="category" name="category">
-                    <option value="General" {% if editing_flow and editing_flow.category == 'General' %}selected{% endif %}>General</option>
-                    <option value="Media" {% if editing_flow and editing_flow.category == 'Media' %}selected{% endif %}>Media</option>
-                    <option value="System" {% if editing_flow and editing_flow.category == 'System' %}selected{% endif %}>System</option>
-                    <option value="Monitoring" {% if editing_flow and editing_flow.category == 'Monitoring' %}selected{% endif %}>Monitoring</option>
-                    <option value="Reports" {% if editing_flow and editing_flow.category == 'Reports' %}selected{% endif %}>Reports</option>
-                    <option value="Alerts" {% if editing_flow and editing_flow.category == 'Alerts' %}selected{% endif %}>Alerts</option>
-                </select>
-                <small>Organize your flows with categories</small>
-            </div>
-            
-            <div class="form-group">
-                <h3>Webhook Receiver</h3>
-                <label>
-                    <input type="checkbox" name="accept_webhooks" id="accept_webhooks" value="true"
-                           {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
-                    Accept incoming webhooks
-                </label>
-                <div id="require-secret-container" style="display: none; margin-top: 8px;">
-                    <label>
-                        <input type="checkbox" name="require_webhook_secret" id="require_webhook_secret" value="true"
-                               {% if editing_flow and editing_flow.webhook_secret %}checked{% endif %}>
-                        Require secret key for incoming webhooks (X-Secret header)
-                    </label>
-                </div>
-                <div class="webhook-info" style="display: none;">
-                    <p>Use this URL to receive webhooks from external services:</p>
-                    <div class="webhook-url">
-                        <code id="webhook-url-display">/api/webhook/</code>
-                        <input type="text" id="flow-name-display" 
-                               value="{{ editing_flow.name if editing_flow else '' }}" readonly>
-                        <button type="button" onclick="copyWebhookUrl()">Copy</button>
-                    </div>
-                    <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
-                </div>
-            </div>
+                    <section class="builder-section">
+                        <h3>Basic Information</h3>
+                        <div class="form-group">
+                            <label for="webhook_url">Discord Webhook URL:</label>
+                            <input type="url" id="webhook_url" name="webhook_url" 
+                                   value="{{ editing_flow.webhook_url if editing_flow else webhook_url }}" 
+                                   placeholder="https://discord.com/api/webhooks/..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="flow_name">Flow Name:</label>
+                            <input type="text" id="flow_name" name="flow_name" 
+                                   value="{{ editing_flow.name if editing_flow else (template_data.name if template_data else '') }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="category">Category:</label>
+                            <select id="category" name="category">
+                                <option value="General" {% if editing_flow and editing_flow.category == 'General' %}selected{% endif %}>General</option>
+                                <option value="Media" {% if editing_flow and editing_flow.category == 'Media' %}selected{% endif %}>Media</option>
+                                <option value="System" {% if editing_flow and editing_flow.category == 'System' %}selected{% endif %}>System</option>
+                                <option value="Monitoring" {% if editing_flow and editing_flow.category == 'Monitoring' %}selected{% endif %}>Monitoring</option>
+                                <option value="Reports" {% if editing_flow and editing_flow.category == 'Reports' %}selected{% endif %}>Reports</option>
+                                <option value="Alerts" {% if editing_flow and editing_flow.category == 'Alerts' %}selected{% endif %}>Alerts</option>
+                            </select>
+                            <small>Organize your flows with categories</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="active">Active:</label>
+                            <input type="checkbox" id="active" name="active" value="true" {% if editing_flow and editing_flow.active %}checked{% endif %}>
+                            <small>Enable or disable this flow</small>
+                        </div>
+                    </section>
 
-            <div class="form-group">
-                <label>Trigger Type:</label>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" name="trigger_type" value="timer"
-                               {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> Timer
-                    </label>
-                    <label>
-                        <input type="radio" name="trigger_type" value="on_change"
-                               {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> On Change
-                    </label>
-                    <label id="on-incoming-option" style="display: none;">
-                        <input type="radio" name="trigger_type" value="on_incoming"
-                               {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> On Incoming Webhook
-                    </label>
-                </div>
-            </div>
-            
-            <div class="form-group" id="timer-options" style="display: none;">
-                <label for="interval">Interval (minutes):</label>
-                <input type="number" id="interval" name="interval" min="1" 
-                       value="{{ editing_flow.interval if editing_flow else '5' }}" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="endpoint">API Endpoint:</label>
-                <input type="url" id="endpoint" name="endpoint" 
-                       value="{{ editing_flow.endpoint if editing_flow else '' }}"
-                       placeholder="https://api.example.com/data">
-                <small>Optional for timer triggers, required for change detection</small>
-                
-                <label for="field">Field to Use:</label>
-                <input type="text" id="field" name="field" 
-                       value="{{ editing_flow.field if editing_flow else '' }}"
-                       placeholder="result['0']['web_title']">
-                <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title'] (required for change detection)</small>
-            </div>
-
-            <details class="advanced-api-settings">
-                <summary><strong>Advanced API Settings</strong> (optional)</summary>
-                <div class="form-group">
-                    <label>Custom Headers:</label>
-                    <div id="headers-list">
-                        {% if editing_flow and editing_flow.api_headers %}
-                            {% for header in editing_flow.api_headers %}
-                                <div class="header-row">
-                                    <input type="text" name="header_key[]" value="{{ header.key }}" placeholder="Header Name">
-                                    <input type="text" name="header_value[]" value="{{ header.value }}" placeholder="Header Value">
-                                    <button type="button" class="remove-header">✖</button>
+                    <section class="builder-section">
+                        <h3>Trigger Settings</h3>
+                        <div class="form-group">
+                            <h4>Webhook Receiver</h4>
+                            <label>
+                                <input type="checkbox" name="accept_webhooks" id="accept_webhooks" value="true"
+                                       {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
+                                Accept incoming webhooks
+                            </label>
+                            <div id="require-secret-container" style="display: none; margin-top: 8px;">
+                                <label>
+                                    <input type="checkbox" name="require_webhook_secret" id="require_webhook_secret" value="true"
+                                           {% if editing_flow and editing_flow.webhook_secret %}checked{% endif %}>
+                                    Require secret key for incoming webhooks (X-Secret header)
+                                </label>
+                            </div>
+                            <div class="webhook-info" style="display: none;">
+                                <p>Use this URL to receive webhooks from external services:</p>
+                                <div class="webhook-url">
+                                    <code id="webhook-url-display">/api/webhook/</code>
+                                    <input type="text" id="flow-name-display" 
+                                           value="{{ editing_flow.name if editing_flow else '' }}" readonly>
+                                    <button type="button" onclick="copyWebhookUrl()">Copy</button>
                                 </div>
-                            {% endfor %}
+                                <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="endpoint">API Endpoint:</label>
+                            <input type="url" id="endpoint" name="endpoint" 
+                                   value="{{ editing_flow.endpoint if editing_flow else '' }}"
+                                   placeholder="https://api.example.com/data">
+                            <small>Optional for timer triggers, required for change detection</small>
+                            <label for="field">Field to Use:</label>
+                            <input type="text" id="field" name="field" 
+                                   value="{{ editing_flow.field if editing_flow else '' }}"
+                                   placeholder="result['0']['web_title']">
+                            <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title'] (required for change detection)</small>
+                        </div>
+                        <details class="advanced-api-settings">
+                            <summary><strong>Advanced API Settings</strong> (optional)</summary>
+                            <div class="form-group">
+                                <label>Custom Headers:</label>
+                                <div id="headers-list">
+                                    {% if editing_flow and editing_flow.api_headers %}
+                                        {% for header in editing_flow.api_headers %}
+                                            <div class="header-row">
+                                                <input type="text" name="header_key[]" value="{{ header.key }}" placeholder="Header Name">
+                                                <input type="text" name="header_value[]" value="{{ header.value }}" placeholder="Header Value">
+                                                <button type="button" class="remove-header">✖</button>
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                                <button type="button" id="add-header">+ Add Header</button>
+                                <small>
+                                    <strong>Common headers:</strong>
+                                    <br>
+                                    • <code>Content-Type: application/json</code> - For JSON/GraphQL APIs
+                                    <br>
+                                    • <code>Authorization: Bearer &lt;token&gt;</code> - For authenticated APIs
+                                    <br>
+                                    • <code>X-API-Key: &lt;key&gt;</code> - For API key authentication
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="api_request_body">Request Body:</label>
+                                <textarea id="api_request_body" name="api_request_body" rows="4" placeholder='{"key": "value"} or GraphQL query'>{{ editing_flow.api_request_body if editing_flow else '' }}</textarea>
+                                <small>
+                                    <strong>Optional.</strong> If provided, a POST request will be made with this body. Otherwise, a GET request is used.
+                                    <br><br>
+                                    <strong>For JSON APIs:</strong> <code>{"key": "value", "param": "data"}</code>
+                                    <br>
+                                    <strong>For GraphQL:</strong> <code>{"query": "{ categories { nodes { mangas { totalCount } } } }"}</code>
+                                    <br>
+                                    <strong>For GraphQL (simplified):</strong> <code>{ categories { nodes { mangas { totalCount } } } }</code>
+                                    <br>
+                                    <strong>💡 Tip:</strong> Make sure to set Content-Type: application/json header for JSON/GraphQL APIs!
+                                </small>
+                            </div>
+                        </details>
+                        <div class="form-group">
+                            <label>Trigger Type:</label>
+                            <div class="radio-group">
+                                <label>
+                                    <input type="radio" name="trigger_type" value="timer"
+                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> Timer
+                                </label>
+                                <label>
+                                    <input type="radio" name="trigger_type" value="on_change"
+                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> On Change
+                                </label>
+                                <label id="on-incoming-option" style="display: none;">
+                                    <input type="radio" name="trigger_type" value="on_incoming"
+                                           {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> On Incoming Webhook
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" id="timer-options" style="display: none;">
+                            <label for="interval">Interval (minutes):</label>
+                            <input type="number" id="interval" name="interval" min="1" 
+                                   value="{{ editing_flow.interval if editing_flow else '5' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="condition_enabled" id="condition_enabled" value="true"
+                                       {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
+                                Enable Conditional Notifications
+                            </label>
+                            <small>Only send notifications when conditions are met</small>
+                        </div>
+                        <div id="condition-config" style="display: none;">
+                            <div class="form-group">
+                                <label for="condition">Condition Expression:</label>
+                                <input type="text" id="condition" name="condition" 
+                                       value="{{ editing_flow.condition if editing_flow else '' }}"
+                                       placeholder="value > 100 and status == 'active'">
+                                <small>
+                                    <strong>Available variables:</strong> value, old_value, data, time, and any API data fields
+                                    <br>
+                                    <strong>Examples:</strong>
+                                    <br>
+                                    • <code>value > 100</code> - Only if value is greater than 100
+                                    <br>
+                                    • <code>result['downloaded_issues'] > 0</code> - Only if downloads exist
+                                    <br>
+                                    • <code>value != old_value and value != 'error'</code> - Only on change and not error
+                                    <br>
+                                    • <code>data['status'] == 'active'</code> - Only if status is active
+                                    <br>
+                                    <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
+                                </small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="builder-section">
+                        <h3>Notification Content</h3>
+                        <div class="form-group">
+                            <label for="webhook_name">Webhook Name:</label>
+                            <input type="text" id="webhook_name" name="webhook_name" 
+                                   value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
+                                   placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
+                            <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="webhook_avatar">Webhook Avatar URL:</label>
+                            <input type="url" id="webhook_avatar" name="webhook_avatar" 
+                                   value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
+                                   placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
+                            <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="message_template">Message Template:</label>
+                            <textarea id="message_template" name="message_template" rows="3">{{ editing_flow.message_template if editing_flow else (template_data.message_template if template_data else '') }}</textarea>
+                            <small>
+                                Available variables: 
+                                {value} - Current field value, 
+                                {old_value} - Previous value (change detection only),
+                                {time} - Current time,
+                                {data} - Full API response data
+                                <br><br>
+                                <strong>For API data:</strong> Use {value} or {data} for full response
+                                <br>
+                                <strong>Examples:</strong>
+                                <br>
+                                • {result['downloaded_issues']} - Access nested data
+                                <br>
+                                • {result['0']['web_title']} - Access array data
+                                <br>
+                                • {time} - Current timestamp
+                                <br><br>
+                                <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
+                                <br>
+                                <strong>📝 Note:</strong> This message appears above the embed. Leave empty if using embeds only.
+                            </small>
+                        </div>
+                        <h3>Discord Embed Configuration</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="embed_enabled" id="embed_enabled" value="true"
+                                       {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.enabled %}checked{% endif %}> 
+                                Enable Discord Embed
+                            </label>
+                            <small>Embeds provide rich formatting with colors, images, fields, and more</small>
+                        </div>
+                        
+                        <div id="embed-config" style="display: none;">
+                            <div class="form-group">
+                                <label for="embed_title">Embed Title:</label>
+                                <input type="text" id="embed_title" name="embed_title" 
+                                       value="{{ editing_flow.embed_config.title if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="Notification Title">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_description">Embed Description:</label>
+                                <textarea id="embed_description" name="embed_description" rows="3"
+                                          placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
+                                <small>Supports the same variables as message template</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_url">Embed URL:</label>
+                                <input type="url" id="embed_url" name="embed_url" 
+                                       value="{{ editing_flow.embed_config.url if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com">
+                                <small>Optional link for the embed title</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_color">Embed Color:</label>
+                                <input type="color" id="embed_color" name="embed_color" 
+                                       value="{{ editing_flow.embed_config.color if editing_flow and editing_flow.embed_config else '#3498db' }}">
+                                <small>Color for the embed border</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="embed_timestamp" value="true"
+                                           {% if not editing_flow or not editing_flow.embed_config or editing_flow.embed_config.timestamp %}checked{% endif %}> 
+                                    Show Timestamp
+                                </label>
+                            </div>
+                            
+                            <h4>Author</h4>
+                            <div class="form-group">
+                                <label for="embed_author_name">Author Name:</label>
+                                <input type="text" id="embed_author_name" name="embed_author_name" 
+                                       value="{{ editing_flow.embed_config.author_name if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="Author Name">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_author_icon">Author Icon URL:</label>
+                                <input type="url" id="embed_author_icon" name="embed_author_icon" 
+                                       value="{{ editing_flow.embed_config.author_icon if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com/icon.png">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_author_url">Author URL:</label>
+                                <input type="url" id="embed_author_url" name="embed_author_url" 
+                                       value="{{ editing_flow.embed_config.author_url if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com">
+                            </div>
+                            
+                            <h4>Footer</h4>
+                            <div class="form-group">
+                                <label for="embed_footer_text">Footer Text:</label>
+                                <input type="text" id="embed_footer_text" name="embed_footer_text" 
+                                       value="{{ editing_flow.embed_config.footer_text if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="Footer text">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_footer_icon">Footer Icon URL:</label>
+                                <input type="url" id="embed_footer_icon" name="embed_footer_icon" 
+                                       value="{{ editing_flow.embed_config.footer_icon if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com/footer-icon.png">
+                            </div>
+                            
+                            <h4>Images</h4>
+                            <div class="form-group">
+                                <label for="embed_thumbnail_url">Thumbnail URL:</label>
+                                <input type="url" id="embed_thumbnail_url" name="embed_thumbnail_url" 
+                                       value="{{ editing_flow.embed_config.thumbnail_url if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com/thumbnail.png">
+                                <small>Small image in the top-right corner</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="embed_image_url">Main Image URL:</label>
+                                <input type="url" id="embed_image_url" name="embed_image_url" 
+                                       value="{{ editing_flow.embed_config.image_url if editing_flow and editing_flow.embed_config else '' }}"
+                                       placeholder="https://example.com/image.png">
+                                <small>Large image at the bottom of the embed</small>
+                            </div>
+                            
+                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields!</small>
+                        </div>
+                    </section>
+                    
+                    <div class="form-actions">
+                        {% if editing_flow %}
+                            <button type="submit">Update Flow</button>
+                            <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
+                            <a href="{{ url_for('notification_builder') }}" class="btn-cancel">Cancel</a>
+                        {% else %}
+                            <button type="submit">Save Flow</button>
+                            <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
                         {% endif %}
+                        <div id="toast-container"></div>
                     </div>
-                    <button type="button" id="add-header">+ Add Header</button>
-                    <small>
-                        <strong>Common headers:</strong>
-                        <br>
-                        • <code>Content-Type: application/json</code> - For JSON/GraphQL APIs
-                        <br>
-                        • <code>Authorization: Bearer &lt;token&gt;</code> - For authenticated APIs
-                        <br>
-                        • <code>X-API-Key: &lt;key&gt;</code> - For API key authentication
-                    </small>
-                </div>
-                <div class="form-group">
-                    <label for="api_request_body">Request Body:</label>
-                    <textarea id="api_request_body" name="api_request_body" rows="4" placeholder='{"key": "value"} or GraphQL query'>{{ editing_flow.api_request_body if editing_flow else '' }}</textarea>
-                    <small>
-                        <strong>Optional.</strong> If provided, a POST request will be made with this body. Otherwise, a GET request is used.
-                        <br><br>
-                        <strong>For JSON APIs:</strong> <code>{"key": "value", "param": "data"}</code>
-                        <br>
-                        <strong>For GraphQL:</strong> <code>{"query": "{ categories { nodes { mangas { totalCount } } } }"}</code>
-                        <br>
-                        <strong>For GraphQL (simplified):</strong> <code>{ categories { nodes { mangas { totalCount } } } }</code>
-                        <br>
-                        <strong>💡 Tip:</strong> Make sure to set Content-Type: application/json header for JSON/GraphQL APIs!
-                    </small>
-                </div>
-            </details>
-
-            <h3>Conditional Notifications</h3>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="condition_enabled" id="condition_enabled" value="true"
-                           {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
-                    Enable Conditional Notifications
-                </label>
-                <small>Only send notifications when conditions are met</small>
-            </div>
-            
-            <div id="condition-config" style="display: none;">
-                <div class="form-group">
-                    <label for="condition">Condition Expression:</label>
-                    <input type="text" id="condition" name="condition" 
-                           value="{{ editing_flow.condition if editing_flow else '' }}"
-                           placeholder="value > 100 and status == 'active'">
-                    <small>
-                        <strong>Available variables:</strong> value, old_value, data, time, and any API data fields
-                        <br>
-                        <strong>Examples:</strong>
-                        <br>
-                        • <code>value > 100</code> - Only if value is greater than 100
-                        <br>
-                        • <code>result['downloaded_issues'] > 0</code> - Only if downloads exist
-                        <br>
-                        • <code>value != old_value and value != 'error'</code> - Only on change and not error
-                        <br>
-                        • <code>data['status'] == 'active'</code> - Only if status is active
-                        <br>
-                        <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
-                    </small>
-                </div>
-            </div>
-
-            <h3>Webhook Appearance</h3>
-            <div class="form-group">
-                <label for="webhook_name">Webhook Name:</label>
-                <input type="text" id="webhook_name" name="webhook_name" 
-                       value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
-                       placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
-                <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="webhook_avatar">Webhook Avatar URL:</label>
-                <input type="url" id="webhook_avatar" name="webhook_avatar" 
-                       value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
-                       placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
-                <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="message_template">Message Template:</label>
-                <textarea id="message_template" name="message_template" rows="3">{{ editing_flow.message_template if editing_flow else (template_data.message_template if template_data else '') }}</textarea>
-                <small>
-                    Available variables: 
-                    {value} - Current field value, 
-                    {old_value} - Previous value (change detection only),
-                    {time} - Current time,
-                    {data} - Full API response data
-                    <br><br>
-                    <strong>For API data:</strong> Use {value} or {data} for full response
-                    <br>
-                    <strong>Examples:</strong>
-                    <br>
-                    • {result['downloaded_issues']} - Access nested data
-                    <br>
-                    • {result['0']['web_title']} - Access array data
-                    <br>
-                    • {time} - Current timestamp
-                    <br><br>
-                    <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
-                    <br>
-                    <strong>📝 Note:</strong> This message appears above the embed. Leave empty if using embeds only.
-                </small>
-            </div>
-            
-            <h3>Discord Embed Configuration</h3>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="embed_enabled" id="embed_enabled" value="true"
-                           {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.enabled %}checked{% endif %}> 
-                    Enable Discord Embed
-                </label>
-                <small>Embeds provide rich formatting with colors, images, fields, and more</small>
-            </div>
-            
-            <div id="embed-config" style="display: none;">
-                <div class="form-group">
-                    <label for="embed_title">Embed Title:</label>
-                    <input type="text" id="embed_title" name="embed_title" 
-                           value="{{ editing_flow.embed_config.title if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="Notification Title">
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_description">Embed Description:</label>
-                    <textarea id="embed_description" name="embed_description" rows="3"
-                              placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
-                    <small>Supports the same variables as message template</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_url">Embed URL:</label>
-                    <input type="url" id="embed_url" name="embed_url" 
-                           value="{{ editing_flow.embed_config.url if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com">
-                    <small>Optional link for the embed title</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_color">Embed Color:</label>
-                    <input type="color" id="embed_color" name="embed_color" 
-                           value="{{ editing_flow.embed_config.color if editing_flow and editing_flow.embed_config else '#3498db' }}">
-                    <small>Color for the embed border</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="embed_timestamp" value="true"
-                               {% if not editing_flow or not editing_flow.embed_config or editing_flow.embed_config.timestamp %}checked{% endif %}> 
-                        Show Timestamp
-                    </label>
-                </div>
-                
-                <h4>Author</h4>
-                <div class="form-group">
-                    <label for="embed_author_name">Author Name:</label>
-                    <input type="text" id="embed_author_name" name="embed_author_name" 
-                           value="{{ editing_flow.embed_config.author_name if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="Author Name">
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_author_icon">Author Icon URL:</label>
-                    <input type="url" id="embed_author_icon" name="embed_author_icon" 
-                           value="{{ editing_flow.embed_config.author_icon if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com/icon.png">
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_author_url">Author URL:</label>
-                    <input type="url" id="embed_author_url" name="embed_author_url" 
-                           value="{{ editing_flow.embed_config.author_url if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com">
-                </div>
-                
-                <h4>Footer</h4>
-                <div class="form-group">
-                    <label for="embed_footer_text">Footer Text:</label>
-                    <input type="text" id="embed_footer_text" name="embed_footer_text" 
-                           value="{{ editing_flow.embed_config.footer_text if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="Footer text">
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_footer_icon">Footer Icon URL:</label>
-                    <input type="url" id="embed_footer_icon" name="embed_footer_icon" 
-                           value="{{ editing_flow.embed_config.footer_icon if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com/footer-icon.png">
-                </div>
-                
-                <h4>Images</h4>
-                <div class="form-group">
-                    <label for="embed_thumbnail_url">Thumbnail URL:</label>
-                    <input type="url" id="embed_thumbnail_url" name="embed_thumbnail_url" 
-                           value="{{ editing_flow.embed_config.thumbnail_url if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com/thumbnail.png">
-                    <small>Small image in the top-right corner</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="embed_image_url">Main Image URL:</label>
-                    <input type="url" id="embed_image_url" name="embed_image_url" 
-                           value="{{ editing_flow.embed_config.image_url if editing_flow and editing_flow.embed_config else '' }}"
-                           placeholder="https://example.com/image.png">
-                    <small>Large image at the bottom of the embed</small>
-                </div>
-                
-                <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields!</small>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="active" value="true"
-                           {% if not editing_flow or editing_flow.active %}checked{% endif %}> Active
-                </label>
-            </div>
-            
-            <div class="form-actions">
-                {% if editing_flow %}
-                    <button type="submit">Update Flow</button>
-                    <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
-                    <a href="{{ url_for('notification_builder') }}" class="btn-cancel">Cancel</a>
-                {% else %}
-                    <button type="submit">Save Flow</button>
-                    <button type="button" onclick="sendTest()" class="btn-test">Send Test</button>
-                {% endif %}
-                <div id="toast-container"></div>
-            </div>
-        </form>
+                </form>
             </section>
         </div>
         
