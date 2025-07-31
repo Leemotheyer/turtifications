@@ -1,5 +1,7 @@
 import json
 import re
+import ast
+import operator
 from datetime import datetime
 from functions.config import get_logs, save_logs, get_config
 
@@ -245,42 +247,44 @@ def format_message_template(template, data, user_variables=None):
     return result
 
 def evaluate_condition(condition, data):
-    """
-    Evaluate a condition expression against data
-    Supports: ==, !=, >, <, >=, <=, and, or, not, in, not in
-    Variables: value, old_value, data, time, and any API data fields
-    Uses bracket notation like message templates: result['downloaded_issues'] > 1
-    """
+    """Safely evaluate a condition expression using AST instead of eval()"""
     if not condition or not condition.strip():
-        return True  # No condition means always true
+        return True
     
     try:
-        # Create a safe evaluation environment with the same logic as message templates
-        safe_dict = {
-            'value': data.get('value'),
-            'old_value': data.get('old_value'),
-            'data': data,
-            'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'True': True,
-            'False': False,
-            'None': None,
-            # Add basic operators and functions
-            'int': int,
-            'float': float,
-            'str': str,
-            'len': len
+        # Define safe operators
+        safe_operators = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.Mod: operator.mod,
+            ast.Pow: operator.pow,
+            ast.LShift: operator.lshift,
+            ast.RShift: operator.rshift,
+            ast.BitOr: operator.or_,
+            ast.BitXor: operator.xor,
+            ast.BitAnd: operator.and_,
+            ast.FloorDiv: operator.floordiv,
+            ast.Eq: operator.eq,
+            ast.NotEq: operator.ne,
+            ast.Lt: operator.lt,
+            ast.LtE: operator.le,
+            ast.Gt: operator.gt,
+            ast.GtE: operator.ge,
+            ast.Is: operator.is_,
+            ast.IsNot: operator.is_not,
+            ast.In: lambda x, y: x in y,
+            ast.NotIn: lambda x, y: x not in y,
+            ast.And: lambda x, y: x and y,
+            ast.Or: lambda x, y: x or y,
+            ast.Not: operator.not_,
+            ast.UAdd: operator.pos,
+            ast.USub: operator.neg,
         }
         
-        # Add all data fields to the safe environment
-        if isinstance(data, dict):
-            safe_dict.update(data)
-        
-        # Pre-process the condition to handle bracket notation like message templates
-        condition_processed = condition
-        
-        # Handle bracket notation: result['downloaded_issues'] -> safe_get_nested(data, 'result.downloaded_issues')
         def get_nested_value(data_dict, path):
-            """Safely get nested dictionary value using dot notation (same as message templates)"""
+            """Safely get nested dictionary value using dot notation"""
             try:
                 keys = path.split('.')
                 current = data_dict
@@ -300,35 +304,108 @@ def evaluate_condition(condition, data):
                 log_notification(f"Field extraction error for '{path}': {str(e)}")
                 return None
         
-        # Create a closure to capture the data variable
-        def make_get_nested(data_dict):
-            def get_nested(path):
-                return get_nested_value(data_dict, path)
-            return get_nested
+        # Create safe variables context
+        safe_vars = {
+            'value': data.get('value'),
+            'old_value': data.get('old_value'),
+            'data': data,
+            'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'True': True,
+            'False': False,
+            'None': None,
+        }
         
-        # Add the helper function to the evaluation environment
-        safe_dict['get_nested_value'] = make_get_nested(data)
+        # Add all data fields to the safe variables
+        if isinstance(data, dict):
+            safe_vars.update(data)
         
-        # Only process bracket notation if it exists in the condition
-        import re
+        def safe_eval_node(node):
+            """Safely evaluate an AST node"""
+            if isinstance(node, ast.Constant):  # Python 3.8+
+                return node.value
+            elif isinstance(node, ast.Num):  # Python < 3.8
+                return node.n
+            elif isinstance(node, ast.Str):  # Python < 3.8
+                return node.s
+            elif isinstance(node, ast.NameConstant):  # Python < 3.8
+                return node.value
+            elif isinstance(node, ast.Name):
+                if node.id in safe_vars:
+                    return safe_vars[node.id]
+                else:
+                    raise ValueError(f"Variable '{node.id}' not allowed")
+            elif isinstance(node, ast.BinOp):
+                left = safe_eval_node(node.left)
+                right = safe_eval_node(node.right)
+                if type(node.op) in safe_operators:
+                    return safe_operators[type(node.op)](left, right)
+                else:
+                    raise ValueError(f"Operator {type(node.op).__name__} not allowed")
+            elif isinstance(node, ast.UnaryOp):
+                operand = safe_eval_node(node.operand)
+                if type(node.op) in safe_operators:
+                    return safe_operators[type(node.op)](operand)
+                else:
+                    raise ValueError(f"Unary operator {type(node.op).__name__} not allowed")
+            elif isinstance(node, ast.Compare):
+                left = safe_eval_node(node.left)
+                result = left
+                for op, comparator in zip(node.ops, node.comparators):
+                    right = safe_eval_node(comparator)
+                    if type(op) in safe_operators:
+                        result = safe_operators[type(op)](result, right)
+                        if not result:
+                            break
+                    else:
+                        raise ValueError(f"Comparison operator {type(op).__name__} not allowed")
+                return result
+            elif isinstance(node, ast.BoolOp):
+                values = [safe_eval_node(value) for value in node.values]
+                if isinstance(node.op, ast.And):
+                    return all(values)
+                elif isinstance(node.op, ast.Or):
+                    return any(values)
+                else:
+                    raise ValueError(f"Boolean operator {type(node.op).__name__} not allowed")
+            elif isinstance(node, ast.Subscript):
+                # Handle dictionary/list access like data['key'] or data[0]
+                obj = safe_eval_node(node.value)
+                if isinstance(node.slice, ast.Index):  # Python < 3.9
+                    key = safe_eval_node(node.slice.value)
+                else:  # Python 3.9+
+                    key = safe_eval_node(node.slice)
+                
+                if isinstance(obj, (dict, list)):
+                    try:
+                        return obj[key]
+                    except (KeyError, IndexError, TypeError):
+                        return None
+                else:
+                    raise ValueError(f"Subscript access not allowed on {type(obj).__name__}")
+            else:
+                raise ValueError(f"AST node type {type(node).__name__} not allowed")
+        
+        # Pre-process the condition to handle bracket notation
+        condition_processed = condition
+        
+        # Handle bracket notation: result['downloaded_issues'] -> result['downloaded_issues']
         bracket_pattern = r'(\w+)\[\'([^\']+)\'\]'
         if re.search(bracket_pattern, condition_processed):
-            def replace_brackets(match):
-                var_name = match.group(1)
-                key = match.group(2)
-                # Use dictionary access since the data is already in safe_dict
-                replacement = f"{var_name}['{key}']"
-                return replacement
+            # AST can handle this directly, no need to transform
+            pass
+        
+        # Parse and evaluate the condition safely
+        try:
+            parsed = ast.parse(condition_processed, mode='eval')
+            result = safe_eval_node(parsed.body)
             
-            condition_processed = re.sub(bracket_pattern, replace_brackets, condition_processed)
-        
-        # Evaluate the condition
-        result = eval(condition_processed, {"__builtins__": {}}, safe_dict)
-        
-        # Log the evaluation result
-        log_notification(f"Condition evaluation: '{condition}' -> {result}")
-        
-        return bool(result)
+            # Log the evaluation result
+            log_notification(f"Condition evaluation: '{condition}' -> {result}")
+            
+            return bool(result)
+        except SyntaxError as e:
+            log_notification(f"Condition syntax error: '{condition}' - {str(e)}")
+            return False
         
     except Exception as e:
         log_notification(f"Condition evaluation error: '{condition}' - {str(e)}")
