@@ -252,10 +252,13 @@ def check_endpoints():
                             timer_data = api_data.copy() if api_data else {}
                             timer_data.update({
                                 'value': current_value,
+                                'old_value': flow.get('last_value'),  # Include old_value for template support
                                 'api_data': api_data
                             })
                             if send_discord_notification(flow['message_template'], flow, timer_data):
                                 flow['last_run'] = now
+                                # Store current value as last_value for next run
+                                flow['last_value'] = current_value
                                 config_changed = True
                     
                     # Handle change detection flows
