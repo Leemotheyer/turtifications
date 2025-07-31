@@ -15,6 +15,9 @@ def get_notification_logs():
 
 def save_notification_logs(logs):
     """Save notification-specific logs"""
+    import os
+    # Ensure data directory exists
+    os.makedirs('data', exist_ok=True)
     with open('data/sent_notifications.json', 'w') as f:
         json.dump(logs, f, indent=2)
 
