@@ -423,7 +423,8 @@ def format_message_template(template, data, user_variables=None):
                 if var_name in calc_variables:
                     return str(calc_variables[var_name])
                 
-                return "0"  # Default for unknown variables in calculations
+                # Return a placeholder that will cause an error in AST evaluation
+                return f"UNKNOWN_VAR_{var_name}"
             
             # Replace {variable} patterns in the calculation expression
             calc_expr_processed = re.sub(r'\{([^}]+)\}', replace_var_in_calc, calc_expr)
@@ -433,8 +434,11 @@ def format_message_template(template, data, user_variables=None):
             
             # Format the result nicely
             if isinstance(result, float):
+                # Always show 2 decimal places for multiplication results involving prices
+                if calc_expr_processed.count('*') > 0 and any(var in calc_expr for var in ['price', 'cost']):
+                    return f"{result:.2f}"
                 # Round to 2 decimal places if it's a float
-                if result == int(result):
+                elif result == int(result):
                     return str(int(result))
                 else:
                     return f"{result:.2f}"
@@ -445,46 +449,9 @@ def format_message_template(template, data, user_variables=None):
             log_notification(f"Calculation replacement error: {str(e)}")
             return f"CALC_ERROR"
     
-    # First replace all {{calculation}} patterns using manual parsing with brace counting
-    result = template
-    
-    while True:
-        # Find {{ 
-        start_idx = result.find('{{')
-        if start_idx == -1:
-            break
-        
-        # Find the last }} in the template for this {{
-        end_idx = result.rfind('}}')
-        
-        # Ensure the }} is after our {{
-        if end_idx <= start_idx + 2:
-            # Look for next }} if rfind gave us something before our {{
-            temp_idx = start_idx + 2
-            end_idx = -1
-            while temp_idx < len(result) - 1:
-                if result[temp_idx:temp_idx+2] == '}}':
-                    end_idx = temp_idx
-                    break
-                temp_idx += 1
-        
-        if end_idx == -1:
-            break  # No matching }} found
-        
-        # Extract calculation expression
-        calc_expr = result[start_idx + 2:end_idx]
-        
-        # Replace the calculation
-        class MockMatch:
-            def __init__(self, content):
-                self.content = content
-            def group(self, n):
-                return self.content
-        
-        calc_result = replace_calculation(MockMatch(calc_expr))
-        
-        # Replace in the result string
-        result = result[:start_idx] + calc_result + result[end_idx + 2:]
+    # First replace all [calculation] patterns using regex
+    calc_pattern = r'\[([^\]]+)\]'
+    result = re.sub(calc_pattern, replace_calculation, template)
     
     # Then replace all {variable} patterns
     pattern = r'\{([^}]+)\}'
