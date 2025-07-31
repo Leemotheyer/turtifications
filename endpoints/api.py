@@ -132,7 +132,7 @@ def init_api_routes(app):
                 'active': len(active_flows),
                 'inactive': len(flows) - len(active_flows),
                 'by_type': {
-                    'timer': len(timer_flows),
+                    'scheduled': len(timer_flows),
                     'change_detection': len(change_flows),
                     'webhook': len(webhook_flows)
                 }

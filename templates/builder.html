@@ -141,16 +141,30 @@
                             <div class="radio-group">
                                 <label>
                                     <input type="radio" name="trigger_type" value="timer"
-                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> Timer
+                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
+                                    <strong>Scheduled Monitoring</strong>
+                                    <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="on_change"
-                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> On Change
+                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
+                                    <strong>Change Detection</strong>
+                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
                                 </label>
                                 <label id="on-incoming-option" style="display: none;">
                                     <input type="radio" name="trigger_type" value="on_incoming"
-                                           {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> On Incoming Webhook
+                                           {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> 
+                                    <strong>Webhook Trigger</strong>
+                                    <small>Responds to incoming webhook calls</small>
                                 </label>
+                            </div>
+                            <div class="help-text">
+                                <small>
+                                    <strong>💡 Which trigger type should I choose?</strong><br>
+                                    • <strong>Scheduled:</strong> Use for regular reports, health checks, or when you want notifications at specific times regardless of data changes<br>
+                                    • <strong>Change Detection:</strong> Use for immediate alerts when something changes (status updates, new data, thresholds crossed)<br>
+                                    • <strong>Webhook:</strong> Use when external systems need to trigger notifications
+                                </small>
                             </div>
                         </div>
                         <div class="form-group" id="timer-options" style="display: none;">
@@ -164,7 +178,7 @@
                                        {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
                                 Enable Conditional Notifications
                             </label>
-                            <small>Only send notifications when conditions are met</small>
+                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
                         </div>
                         <div id="condition-config" style="display: none;">
                             <div class="form-group">
@@ -181,9 +195,11 @@
                                     <br>
                                     • <code>result['downloaded_issues'] > 0</code> - Only if downloads exist
                                     <br>
-                                    • <code>value != old_value and value != 'error'</code> - Only on change and not error
-                                    <br>
                                     • <code>data['status'] == 'active'</code> - Only if status is active
+                                    <br>
+                                    • <code>value > old_value</code> - Only if value increased (for scheduled monitoring)
+                                    <br>
+                                    <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
                                     <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
                                 </small>

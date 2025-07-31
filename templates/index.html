@@ -84,11 +84,11 @@
                                 <p><strong>Category:</strong> {{ flow.category or 'General' }}</p>
                                 <p><strong>Type:</strong> 
                                     {% if flow.trigger_type == 'timer' %}
-                                        Timer (every {{ flow.interval }} minutes)
+                                        <span class="flow-type timer">Scheduled ({{ flow.interval }}m)</span>
                                     {% elif flow.trigger_type == 'on_change' %}
-                                        Change Detection
-                                    {% else %}
-                                        Webhook Trigger
+                                        <span class="flow-type change">Change Detection</span>
+                                    {% elif flow.trigger_type == 'on_incoming' %}
+                                        <span class="flow-type webhook">Webhook</span>
                                     {% endif %}
                                 </p>
                                 <p><strong>Status:</strong> 
