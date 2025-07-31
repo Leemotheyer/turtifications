@@ -8,6 +8,11 @@ LOG_FILE = 'data/notification_logs.json'
 
 def initialize_files():
     """Initialize config and log files if they don't exist"""
+    # Ensure data directory exists
+    data_dir = os.path.dirname(CONFIG_FILE)
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir, exist_ok=True)
+    
     # Initialize default config if file doesn't exist
     if not os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'w') as f:
