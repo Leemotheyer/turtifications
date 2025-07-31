@@ -197,11 +197,29 @@ def init_api_routes(app):
     def api_test_notification():
         """Send a test notification via API"""
         try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'No JSON data provided'}), 400
+            # Safely parse JSON data with validation
+            data = request.get_json(force=True, silent=False, cache=False)
             
+            # Validate that we received valid JSON data
+            if not data:
+                return jsonify({'error': 'No JSON data provided or invalid JSON format'}), 400
+            
+            # Validate data size to prevent DoS attacks
+            import sys
+            data_size = sys.getsizeof(str(data))
+            max_size = 1024 * 512  # 512KB limit for test notifications
+            if data_size > max_size:
+                return jsonify({'error': f'Request data too large ({data_size} bytes, max {max_size})'}), 413
+            
+            # Extract and validate message
             message = data.get('message', 'Test notification from API')
+            if not isinstance(message, str):
+                return jsonify({'error': 'Message must be a string'}), 400
+            
+            # Validate message length
+            if len(message) > 2000:  # Discord message limit
+                return jsonify({'error': 'Message too long (max 2000 characters)'}), 400
+            
             webhook_url = data.get('webhook_url')
             
             if not webhook_url:
@@ -210,6 +228,10 @@ def init_api_routes(app):
                 webhook_url = config.get('discord_webhook')
                 if not webhook_url:
                     return jsonify({'error': 'No webhook URL provided and no default configured'}), 400
+            
+            # Validate webhook URL format
+            if not isinstance(webhook_url, str) or not webhook_url.startswith('https://'):
+                return jsonify({'error': 'Invalid webhook URL format'}), 400
             
             # Create a simple test flow
             test_flow = {
@@ -231,6 +253,11 @@ def init_api_routes(app):
                     'error': 'Failed to send notification'
                 }), 500
                 
+        except ValueError as json_error:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid JSON format'
+            }), 400
         except Exception as e:
             return jsonify({
                 'success': False,

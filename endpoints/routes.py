@@ -309,18 +309,40 @@ def init_routes(app):
     @app.route('/toggle_flow', methods=['POST'])
     def toggle_flow():
         try:
-            data = request.get_json()
+            # Safely parse JSON data with validation
+            data = request.get_json(force=True, silent=False, cache=False)
+            
+            # Validate that we received valid JSON data
+            if data is None:
+                return jsonify({'success': False, 'error': 'Invalid or missing JSON data'}), 400
+            
+            # Validate required fields
+            if 'flow_name' not in data or 'active' not in data:
+                return jsonify({'success': False, 'error': 'Missing required fields: flow_name, active'}), 400
+            
+            # Validate data types
+            if not isinstance(data['flow_name'], str) or not isinstance(data['active'], bool):
+                return jsonify({'success': False, 'error': 'Invalid data types: flow_name must be string, active must be boolean'}), 400
+            
             config = get_config()
             
             for flow in config['notification_flows']:
                 if flow['name'] == data['flow_name']:
                     flow['active'] = data['active']
-                    save_config(config)
-                    return jsonify({'success': True})
+                    try:
+                        save_config(config)
+                        return jsonify({'success': True})
+                    except Exception as save_error:
+                        log_notification(f"Failed to save config when toggling flow {data['flow_name']}: {str(save_error)}")
+                        return jsonify({'success': False, 'error': 'Failed to save configuration'}), 500
             
-            return jsonify({'success': False, 'error': 'Flow not found'})
+            return jsonify({'success': False, 'error': 'Flow not found'}), 404
+            
+        except ValueError as json_error:
+            return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
         except Exception as e:
-            return jsonify({'success': False, 'error': str(e)})
+            log_notification(f"Toggle flow error: {str(e)}")
+            return jsonify({'success': False, 'error': 'Server error'}), 500
 
     @app.route('/delete_flow/<int:index>')
     def delete_flow(index):
@@ -474,7 +496,21 @@ def init_routes(app):
                 abort(403, description="Invalid webhook secret")
         
         try:
-            data = request.get_json()
+            # Safely parse JSON data with proper validation
+            data = request.get_json(force=True, silent=False, cache=False)
+            
+            # Validate that we actually received JSON data
+            if data is None:
+                log_notification(f"Webhook error for {flow_name}: No valid JSON data received")
+                abort(400, description="Invalid or missing JSON data")
+            
+            # Validate data size to prevent DoS attacks
+            import sys
+            data_size = sys.getsizeof(str(data))
+            max_size = 1024 * 1024  # 1MB limit
+            if data_size > max_size:
+                log_notification(f"Webhook error for {flow_name}: Data too large ({data_size} bytes)")
+                abort(413, description="Request data too large")
             
             # Store the data in the flow for use in message formatting
             flow['last_data'] = data
@@ -482,14 +518,22 @@ def init_routes(app):
             # Send notification
             log_notification(f"🌐 Webhook received: Processing webhook for flow '{flow_name}'")
             if send_discord_notification(flow['message_template'], flow, data):
-                save_config(config)  # Save the updated flow with last_data
+                try:
+                    save_config(config)  # Save the updated flow with last_data
+                except Exception as save_error:
+                    log_notification(f"Failed to save config after webhook for {flow_name}: {str(save_error)}")
+                    # Continue execution - notification was sent successfully
                 return jsonify({"status": "success"})
             else:
                 abort(500, description="Failed to send notification")
                 
+        except ValueError as json_error:
+            # Handle JSON parsing errors specifically
+            log_notification(f"Webhook JSON parsing error for {flow_name}: {str(json_error)}")
+            abort(400, description="Invalid JSON format")
         except Exception as e:
             log_notification(f"Webhook error for {flow_name}: {str(e)}")
-            abort(400, description=str(e))
+            abort(400, description="Webhook processing failed")
 
     # ===== NEW FEATURES ROUTES =====
     
