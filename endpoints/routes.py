@@ -690,6 +690,10 @@ def init_routes(app):
     def preview_notification():
         """Preview how a notification will look"""
         try:
+            # Load user variables from config
+            config = get_config()
+            user_variables = config.get('user_variables', {})
+            
             # Get form data
             message_template = request.form.get('message_template', '')
             embed_enabled = request.form.get('embed_enabled') == 'true'
@@ -759,7 +763,7 @@ def init_routes(app):
             api_request_body = request.form.get('api_request_body', '')
 
             # Format the message
-            formatted_message = format_message_template(message_template, sample_data)
+            formatted_message = format_message_template(message_template, sample_data, user_variables)
             
             # Create embed preview if enabled
             embed_preview = None
@@ -782,7 +786,7 @@ def init_routes(app):
                     'dynamic_fields': []
                 }
                 
-                embed_preview = create_discord_embed(embed_config, sample_data)
+                embed_preview = create_discord_embed(embed_config, sample_data, user_variables)
             
             return jsonify({
                 'success': True,
