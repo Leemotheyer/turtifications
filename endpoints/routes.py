@@ -515,9 +515,24 @@ def init_routes(app):
             # Store the data in the flow for use in message formatting
             flow['last_data'] = data
             
+            # Create enhanced data object with old_value support
+            webhook_data = data.copy() if isinstance(data, dict) else {}
+            # Add old_value from previous webhook call if available
+            webhook_data['old_value'] = flow.get('last_value')
+            
+            # Extract value from current data if there's a field configured
+            current_value = None
+            if flow.get('field'):
+                from functions.notifications import extract_field_value
+                current_value = extract_field_value(data, flow['field'])
+                webhook_data['value'] = current_value
+            
             # Send notification
             log_notification(f"🌐 Webhook received: Processing webhook for flow '{flow_name}'")
-            if send_discord_notification(flow['message_template'], flow, data):
+            if send_discord_notification(flow['message_template'], flow, webhook_data):
+                # Store current value as last_value for next webhook call
+                if current_value is not None:
+                    flow['last_value'] = current_value
                 try:
                     save_config(config)  # Save the updated flow with last_data
                 except Exception as save_error:
