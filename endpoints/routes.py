@@ -81,7 +81,7 @@ def init_routes(app):
                 # System settings
                 check_interval = int(request.form.get('check_interval', 5))
                 log_retention = int(request.form.get('log_retention', 1000))
-                notification_log_retention = int(request.form.get('notification_log_retention', 100))
+                notification_log_retention = int(request.form.get('notification_log_retention', 500))
                 # User variables
                 var_keys = request.form.getlist('var_key[]')
                 var_vals = request.form.getlist('var_value[]')
@@ -100,8 +100,8 @@ def init_routes(app):
                 if log_retention < 100 or log_retention > 10000:
                     flash('Log retention must be between 100 and 10000 entries', 'error')
                     return redirect(url_for('configure'))
-                if notification_log_retention < 10 or notification_log_retention > 1000:
-                    flash('Notification log retention must be between 10 and 1000 entries', 'error')
+                if notification_log_retention < 10 or notification_log_retention > 500:
+                    flash('Notification log retention must be between 10 and 500 entries', 'error')
                     return redirect(url_for('configure'))
                 # Update configuration
                 config['discord_webhook'] = webhook_url

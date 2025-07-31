@@ -15,8 +15,9 @@ def initialize_files():
                 "discord_webhook": "",
                 "check_interval": 5,
                 "log_retention": 1000,
-                "notification_log_retention": 100,
-                "user_variables": {}
+                "notification_log_retention": 500,
+                "user_variables": {},
+                "total_notifications_sent": 0
             }, f)
 
     # Initialize log file if it doesn't exist

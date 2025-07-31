@@ -68,8 +68,8 @@
             <div class="form-group">
                 <label for="notification_log_retention">Notification Log Retention (entries):</label>
                 <input type="number" id="notification_log_retention" name="notification_log_retention" 
-                       value="{{ config.notification_log_retention or 100 }}" min="10" max="1000" required>
-                <small>Maximum number of notification entries to keep (10-1000)</small>
+                       value="{{ config.notification_log_retention or 500 }}" min="10" max="500" required>
+                <small>Maximum number of notification entries to keep (10-500)</small>
             </div>
             
             <div class="form-actions">
