@@ -240,14 +240,14 @@ def check_endpoints():
                             log_notification(f"API error in {flow['name']}: {str(api_error)}")
                             continue
                     
-                    # Handle timer-based flows
+                    # Handle scheduled monitoring (timer-based flows)
                     if flow['trigger_type'] == 'timer':
                         now = time.time()
                         last_run = flow.get('last_run', 0)
                         interval = flow.get('interval', 5) * 60
                         
                         if now - last_run >= interval:
-                            log_notification(f"⏰ Timer trigger: Sending notification for flow '{flow['name']}'")
+                            log_notification(f"⏰ Scheduled monitoring: Running check for flow '{flow['name']}'")
                             # Create data object for condition evaluation
                             timer_data = api_data.copy() if api_data else {}
                             timer_data.update({
@@ -261,16 +261,19 @@ def check_endpoints():
                                 flow['last_value'] = current_value
                                 config_changed = True
                     
-                    # Handle change detection flows
+                    # Handle change detection flows (immediate on change)
                     elif flow['trigger_type'] == 'on_change':
                         if not flow.get('endpoint') or not flow.get('field'):
                             continue
                             
+                        # Initialize last_value if not present
                         if 'last_value' not in flow:
                             flow['last_value'] = current_value
                             config_changed = True
+                            log_notification(f"🔍 Change detection: Initialized baseline for flow '{flow['name']}' with value '{current_value}'")
                             continue
                         
+                        # Only proceed if value actually changed
                         if current_value != flow['last_value']:
                             log_notification(f"🔄 Change detected: Field '{flow['field']}' changed from '{flow['last_value']}' to '{current_value}' in flow '{flow['name']}'")
                             # Create a data object that includes both API data and change information

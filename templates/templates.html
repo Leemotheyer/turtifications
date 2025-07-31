@@ -44,11 +44,11 @@
                         <div class="detail-item">
                             <strong>Trigger:</strong> 
                             {% if template.trigger_type == 'timer' %}
-                                Timer
+                                <span class="badge badge-timer">Scheduled</span>
                             {% elif template.trigger_type == 'on_change' %}
-                                Change Detection
-                            {% else %}
-                                Webhook
+                                <span class="badge badge-change">Change Detection</span>
+                            {% elif template.trigger_type == 'on_incoming' %}
+                                <span class="badge badge-webhook">Webhook</span>
                             {% endif %}
                         </div>
                         
