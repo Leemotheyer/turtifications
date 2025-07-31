@@ -28,8 +28,9 @@
                         <div class="form-group">
                             <label for="webhook_url">Discord Webhook URL:</label>
                             <input type="url" id="webhook_url" name="webhook_url" 
-                                   value="{{ editing_flow.webhook_url if editing_flow else webhook_url }}" 
-                                   placeholder="https://discord.com/api/webhooks/..." required>
+                                   value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
+                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
+                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>

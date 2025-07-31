@@ -167,9 +167,12 @@ def init_routes(app):
             try:
                 # Validate required fields
                 webhook_url = request.form.get('webhook_url', '').strip()
+                # If no webhook URL provided, check if there's a default configured
                 if not webhook_url:
-                    flash('Webhook URL is required', 'error')
-                    return redirect(url_for('notification_builder'))
+                    default_webhook = config.get('discord_webhook', '')
+                    if not default_webhook:
+                        flash('Webhook URL is required (no default configured)', 'error')
+                        return redirect(url_for('notification_builder'))
                     
                 if not request.form.get('flow_name'):
                     flash('Flow name is required', 'error')
@@ -234,7 +237,7 @@ def init_routes(app):
                 updated_flow = {
                     'name': request.form['flow_name'],
                     'trigger_type': trigger_type,
-                    'webhook_url': webhook_url,
+                    'webhook_url': webhook_url,  # Store empty string if not provided, will use default
                     'webhook_name': request.form.get('webhook_name', '').strip(),  # Allow empty
                     'webhook_avatar': request.form.get('webhook_avatar', '').strip(),  # Allow empty
                     'message_template': request.form.get('message_template', ''),
@@ -415,7 +418,10 @@ def init_routes(app):
 
             # Validate required fields
             if not test_flow['webhook_url']:
-                return jsonify({'success': False, 'error': 'Webhook URL is required'})
+                # Check if there's a default webhook URL configured
+                default_webhook = config.get('discord_webhook', '')
+                if not default_webhook:
+                    return jsonify({'success': False, 'error': 'Webhook URL is required (no default configured)'})
             
             # Allow empty message template if embed is enabled
             if not test_flow['message_template'] and not test_flow.get('embed_config', {}).get('enabled', False):
