@@ -9,6 +9,7 @@ from functions.flow_stats import get_flow_statistics, get_recent_flow_activity
 from functions.notifications import send_discord_notification
 from functions.utils import get_notification_logs
 import json
+import sys
 
 def init_api_routes(app):
     """Initialize API routes"""

@@ -545,10 +545,8 @@ def evaluate_condition(condition, data):
         condition_processed = condition
         
         # Handle bracket notation: result['downloaded_issues'] -> result['downloaded_issues']
+        # AST can handle bracket notation directly, no transformation needed
         bracket_pattern = r'(\w+)\[\'([^\']+)\'\]'
-        if re.search(bracket_pattern, condition_processed):
-            # AST can handle this directly, no need to transform
-            pass
         
         # Parse and evaluate the condition safely
         try:

@@ -511,7 +511,6 @@ def init_routes(app):
                 abort(400, description="Invalid or missing JSON data")
             
             # Validate data size to prevent DoS attacks
-            import sys
             data_size = sys.getsizeof(str(data))
             max_size = 1024 * 1024  # 1MB limit
             if data_size > max_size:
