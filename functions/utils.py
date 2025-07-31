@@ -144,7 +144,7 @@ def log_notification(message, category=None):
     save_logs(logs)
 
 def format_message_template(template, data, user_variables=None):
-    """Simple and reliable message template formatter with user variable support"""
+    """Simple and reliable message template formatter with user variable support and calculations"""
     user_variables = user_variables or {}
     
     def get_nested_value(data_dict, path):
@@ -168,7 +168,7 @@ def format_message_template(template, data, user_variables=None):
             return current
         except:
             return None
-    
+
     def replace_template_var(match):
         """Replace template variables with actual values"""
         try:
@@ -246,11 +246,161 @@ def format_message_template(template, data, user_variables=None):
             log_notification(f"Template formatting error: {str(e)}")
             return "ERROR"
     
-    # Replace all {variable} patterns
+    def replace_calculation(match):
+        """Replace calculation expressions with computed values"""
+        try:
+            calc_expr = match.group(1)  # Get the content inside {{}}
+            
+            # Build variables dictionary for calculation
+            calc_variables = {}
+            
+            # Add simple data variables
+            for key, value in data.items():
+                if isinstance(value, (int, float, str)):
+                    # Try to convert strings to numbers if possible
+                    if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+                        try:
+                            calc_variables[key] = float(value) if '.' in value else int(value)
+                        except ValueError:
+                            calc_variables[key] = value
+                    else:
+                        calc_variables[key] = value
+            
+            # Add user variables
+            for key, value in user_variables.items():
+                if isinstance(value, (int, float, str)):
+                    if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+                        try:
+                            calc_variables[key] = float(value) if '.' in value else int(value)
+                        except ValueError:
+                            calc_variables[key] = value
+                    else:
+                        calc_variables[key] = value
+            
+            # Handle nested data access in calculations by replacing {var} patterns
+            # Replace {variable} references with actual values before calculation
+            def replace_var_in_calc(var_match):
+                var_name = var_match.group(1)
+                
+                # Handle time variable
+                if var_name == 'time':
+                    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Handle data['key']['subkey'] pattern
+                if var_name.startswith("data['") and var_name.endswith("']"):
+                    path = var_name[6:-3]  # Remove data[' and ']
+                    path = path.replace("']['", ".")  # Convert to dot notation
+                    value = get_nested_value(data, path)
+                    if value is not None and isinstance(value, (int, float)):
+                        return str(value)
+                    return "0"  # Default for calculations
+                
+                # Handle simple variables
+                if var_name in data and isinstance(data[var_name], (int, float)):
+                    return str(data[var_name])
+                
+                # Handle user variables
+                if var_name.startswith('var:'):
+                    user_var = var_name[4:]
+                    if user_var in user_variables and isinstance(user_variables[user_var], (int, float)):
+                        return str(user_variables[user_var])
+                
+                # Try direct lookup in calc_variables
+                if var_name in calc_variables:
+                    return str(calc_variables[var_name])
+                
+                # Return a placeholder that will cause an error in AST evaluation
+                return f"UNKNOWN_VAR_{var_name}"
+            
+            # Replace {variable} patterns in the calculation expression
+            calc_expr_processed = re.sub(r'\{([^}]+)\}', replace_var_in_calc, calc_expr)
+            
+            # Evaluate the processed expression
+            result = safe_eval_calculation(calc_expr_processed, calc_variables)
+            
+            # Format the result nicely
+            if isinstance(result, float):
+                # Always show 2 decimal places for multiplication results involving prices
+                if calc_expr_processed.count('*') > 0 and any(var in calc_expr for var in ['price', 'cost']):
+                    return f"{result:.2f}"
+                # Round to 2 decimal places if it's a float
+                elif result == int(result):
+                    return str(int(result))
+                else:
+                    return f"{result:.2f}"
+            else:
+                return str(result)
+                
+        except Exception as e:
+            log_notification(f"Calculation replacement error: {str(e)}")
+            return f"CALC_ERROR"
+    
+    # First replace all [calculation] patterns using regex
+    calc_pattern = r'\[([^\]]+)\]'
+    result = re.sub(calc_pattern, replace_calculation, template)
+    
+    # Then replace all {variable} patterns
     pattern = r'\{([^}]+)\}'
-    result = re.sub(pattern, replace_template_var, template)
+    result = re.sub(pattern, replace_template_var, result)
     
     return result
+
+def safe_eval_calculation(expression, variables):
+    """Safely evaluate mathematical expressions using AST"""
+    try:
+        # Supported operations
+        ops = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.FloorDiv: operator.floordiv,
+            ast.Mod: operator.mod,
+            ast.Pow: operator.pow,
+            ast.USub: operator.neg,
+            ast.UAdd: operator.pos,
+        }
+        
+        def eval_node(node):
+            if isinstance(node, ast.Constant):  # Python 3.8+
+                return node.value
+            elif isinstance(node, ast.Num):  # For older Python versions
+                return node.n
+            elif isinstance(node, ast.Str):  # For older Python versions
+                return node.s
+            elif isinstance(node, ast.Name):
+                # Variable lookup
+                var_name = node.id
+                if var_name in variables:
+                    return variables[var_name]
+                else:
+                    raise ValueError(f"Unknown variable: {var_name}")
+            elif isinstance(node, ast.BinOp):
+                left = eval_node(node.left)
+                right = eval_node(node.right)
+                op = ops.get(type(node.op))
+                if op:
+                    return op(left, right)
+                else:
+                    raise ValueError(f"Unsupported operation: {type(node.op)}")
+            elif isinstance(node, ast.UnaryOp):
+                operand = eval_node(node.operand)
+                op = ops.get(type(node.op))
+                if op:
+                    return op(operand)
+                else:
+                    raise ValueError(f"Unsupported unary operation: {type(node.op)}")
+            else:
+                raise ValueError(f"Unsupported node type: {type(node)}")
+        
+        # Parse the expression
+        tree = ast.parse(expression, mode='eval')
+        result = eval_node(tree.body)
+        return result
+        
+    except Exception as e:
+        log_notification(f"Calculation error in '{expression}': {str(e)}")
+        return f"CALC_ERROR({expression})"
 
 def evaluate_condition(condition, data):
     """Safely evaluate a condition expression using AST instead of eval()"""
