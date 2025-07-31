@@ -168,120 +168,6 @@ def format_message_template(template, data, user_variables=None):
             return current
         except:
             return None
-    
-    def safe_eval_calculation(expression, variables):
-        """Safely evaluate mathematical expressions using AST"""
-        try:
-            # Supported operations
-            ops = {
-                ast.Add: operator.add,
-                ast.Sub: operator.sub,
-                ast.Mult: operator.mul,
-                ast.Div: operator.truediv,
-                ast.FloorDiv: operator.floordiv,
-                ast.Mod: operator.mod,
-                ast.Pow: operator.pow,
-                ast.USub: operator.neg,
-                ast.UAdd: operator.pos,
-            }
-            
-            def eval_node(node):
-                if isinstance(node, ast.Constant):  # Python 3.8+
-                    return node.value
-                elif isinstance(node, ast.Num):  # For older Python versions
-                    return node.n
-                elif isinstance(node, ast.Str):  # For older Python versions
-                    return node.s
-                elif isinstance(node, ast.Name):
-                    # Variable lookup
-                    var_name = node.id
-                    if var_name in variables:
-                        return variables[var_name]
-                    else:
-                        raise ValueError(f"Unknown variable: {var_name}")
-                elif isinstance(node, ast.BinOp):
-                    left = eval_node(node.left)
-                    right = eval_node(node.right)
-                    op = ops.get(type(node.op))
-                    if op:
-                        return op(left, right)
-                    else:
-                        raise ValueError(f"Unsupported operation: {type(node.op)}")
-                elif isinstance(node, ast.UnaryOp):
-                    operand = eval_node(node.operand)
-                    op = ops.get(type(node.op))
-                    if op:
-                        return op(operand)
-                    else:
-                        raise ValueError(f"Unsupported unary operation: {type(node.op)}")
-                else:
-                    raise ValueError(f"Unsupported node type: {type(node)}")
-            
-            # Parse the expression
-            tree = ast.parse(expression, mode='eval')
-            result = eval_node(tree.body)
-            return result
-            
-        except Exception as e:
-            log_notification(f"Calculation error in '{expression}': {str(e)}")
-            return f"CALC_ERROR({expression})"
-    
-    def safe_eval_calculation(expression, variables):
-        """Safely evaluate mathematical expressions using AST"""
-        try:
-            # Supported operations
-            ops = {
-                ast.Add: operator.add,
-                ast.Sub: operator.sub,
-                ast.Mult: operator.mul,
-                ast.Div: operator.truediv,
-                ast.FloorDiv: operator.floordiv,
-                ast.Mod: operator.mod,
-                ast.Pow: operator.pow,
-                ast.USub: operator.neg,
-                ast.UAdd: operator.pos,
-            }
-            
-            def eval_node(node):
-                if isinstance(node, ast.Constant):  # Python 3.8+
-                    return node.value
-                elif isinstance(node, ast.Num):  # For older Python versions
-                    return node.n
-                elif isinstance(node, ast.Str):  # For older Python versions
-                    return node.s
-                elif isinstance(node, ast.Name):
-                    # Variable lookup
-                    var_name = node.id
-                    if var_name in variables:
-                        return variables[var_name]
-                    else:
-                        raise ValueError(f"Unknown variable: {var_name}")
-                elif isinstance(node, ast.BinOp):
-                    left = eval_node(node.left)
-                    right = eval_node(node.right)
-                    op = ops.get(type(node.op))
-                    if op:
-                        return op(left, right)
-                    else:
-                        raise ValueError(f"Unsupported operation: {type(node.op)}")
-                elif isinstance(node, ast.UnaryOp):
-                    operand = eval_node(node.operand)
-                    op = ops.get(type(node.op))
-                    if op:
-                        return op(operand)
-                    else:
-                        raise ValueError(f"Unsupported unary operation: {type(node.op)}")
-                else:
-                    raise ValueError(f"Unsupported node type: {type(node)}")
-            
-            # Parse the expression
-            tree = ast.parse(expression, mode='eval')
-            result = eval_node(tree.body)
-            return result
-            
-        except Exception as e:
-            log_notification(f"Calculation error in '{expression}': {str(e)}")
-            return f"CALC_ERROR({expression})"
 
     def replace_template_var(match):
         """Replace template variables with actual values"""
@@ -458,6 +344,63 @@ def format_message_template(template, data, user_variables=None):
     result = re.sub(pattern, replace_template_var, result)
     
     return result
+
+def safe_eval_calculation(expression, variables):
+    """Safely evaluate mathematical expressions using AST"""
+    try:
+        # Supported operations
+        ops = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.FloorDiv: operator.floordiv,
+            ast.Mod: operator.mod,
+            ast.Pow: operator.pow,
+            ast.USub: operator.neg,
+            ast.UAdd: operator.pos,
+        }
+        
+        def eval_node(node):
+            if isinstance(node, ast.Constant):  # Python 3.8+
+                return node.value
+            elif isinstance(node, ast.Num):  # For older Python versions
+                return node.n
+            elif isinstance(node, ast.Str):  # For older Python versions
+                return node.s
+            elif isinstance(node, ast.Name):
+                # Variable lookup
+                var_name = node.id
+                if var_name in variables:
+                    return variables[var_name]
+                else:
+                    raise ValueError(f"Unknown variable: {var_name}")
+            elif isinstance(node, ast.BinOp):
+                left = eval_node(node.left)
+                right = eval_node(node.right)
+                op = ops.get(type(node.op))
+                if op:
+                    return op(left, right)
+                else:
+                    raise ValueError(f"Unsupported operation: {type(node.op)}")
+            elif isinstance(node, ast.UnaryOp):
+                operand = eval_node(node.operand)
+                op = ops.get(type(node.op))
+                if op:
+                    return op(operand)
+                else:
+                    raise ValueError(f"Unsupported unary operation: {type(node.op)}")
+            else:
+                raise ValueError(f"Unsupported node type: {type(node)}")
+        
+        # Parse the expression
+        tree = ast.parse(expression, mode='eval')
+        result = eval_node(tree.body)
+        return result
+        
+    except Exception as e:
+        log_notification(f"Calculation error in '{expression}': {str(e)}")
+        return f"CALC_ERROR({expression})"
 
 def evaluate_condition(condition, data):
     """Safely evaluate a condition expression using AST instead of eval()"""
