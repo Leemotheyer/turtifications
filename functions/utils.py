@@ -3,7 +3,7 @@ import re
 import ast
 import operator
 from datetime import datetime
-from functions.config import get_logs, save_logs, get_config
+from functions.config import get_logs, save_logs, get_config, save_config
 
 def get_notification_logs():
     """Get notification-specific logs"""
@@ -97,7 +97,7 @@ def log_notification_sent(flow_name, message_content, embed_info=None, webhook_n
     
     # Get configurable log retention limit
     config = get_config()
-    notification_log_retention = config.get('notification_log_retention', 100)  # Default to 100
+    notification_log_retention = config.get('notification_log_retention', 500)  # Default to 500
     
     # Keep only the last N notification logs
     if len(logs) > notification_log_retention:
@@ -105,6 +105,12 @@ def log_notification_sent(flow_name, message_content, embed_info=None, webhook_n
     
     # Save notification logs
     save_notification_logs(logs)
+    
+    # Increment total notifications counter
+    config = get_config()
+    total_sent = config.get('total_notifications_sent', 0)
+    config['total_notifications_sent'] = total_sent + 1
+    save_config(config)
 
 def log_notification(message, category=None):
     """Log a notification message with timestamp and category"""

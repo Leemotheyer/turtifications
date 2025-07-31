@@ -111,7 +111,8 @@ def init_api_routes(app):
         
         # Notification statistics
         notification_logs = get_notification_logs()
-        total_notifications = len(notification_logs)
+        total_notifications_in_log = len(notification_logs)
+        total_notifications_sent = config.get('total_notifications_sent', 0)
         
         # Calculate notifications in last 24 hours
         now = datetime.now()
@@ -143,7 +144,8 @@ def init_api_routes(app):
                 'last_24h': recent_logs
             },
             'notifications': {
-                'total_sent': total_notifications,
+                'total_sent': total_notifications_sent,
+                'total_in_current_log': total_notifications_in_log,
                 'last_24h': notifications_24h
             }
         })
