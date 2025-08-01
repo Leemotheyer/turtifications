@@ -271,14 +271,19 @@ def format_message_template(template, data, user_variables=None):
             
             # Add user variables
             for key, value in user_variables.items():
-                if isinstance(value, (int, float, str)):
-                    if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
-                        try:
-                            calc_variables[key] = float(value) if '.' in value else int(value)
-                        except ValueError:
-                            calc_variables[key] = value
-                    else:
+                if isinstance(value, (int, float)):
+                    calc_variables[key] = value
+                elif isinstance(value, str):
+                    # Try to convert string numbers to actual numbers
+                    try:
+                        if '.' in value:
+                            calc_variables[key] = float(value)
+                        else:
+                            calc_variables[key] = int(value)
+                    except ValueError:
                         calc_variables[key] = value
+                else:
+                    calc_variables[key] = value
             
             # Handle nested data access in calculations by replacing {var} patterns
             # Replace {variable} references with actual values before calculation
@@ -305,8 +310,22 @@ def format_message_template(template, data, user_variables=None):
                 # Handle user variables
                 if var_name.startswith('var:'):
                     user_var = var_name[4:]
-                    if user_var in user_variables and isinstance(user_variables[user_var], (int, float)):
-                        return str(user_variables[user_var])
+                    if user_var in user_variables:
+                        value = user_variables[user_var]
+                        # Convert string numbers to actual numbers for calculations
+                        if isinstance(value, str):
+                            try:
+                                # Try to convert to number
+                                if '.' in value:
+                                    return str(float(value))
+                                else:
+                                    return str(int(value))
+                            except ValueError:
+                                return str(value)
+                        elif isinstance(value, (int, float)):
+                            return str(value)
+                        else:
+                            return str(value)
                 
                 # Try direct lookup in calc_variables
                 if var_name in calc_variables:
@@ -405,10 +424,12 @@ def safe_eval_calculation(expression, variables):
         log_notification(f"Calculation error in '{expression}': {str(e)}")
         return f"CALC_ERROR({expression})"
 
-def evaluate_condition(condition, data):
+def evaluate_condition(condition, data, user_variables=None):
     """Safely evaluate a condition expression using AST instead of eval()"""
     if not condition or not condition.strip():
         return True
+    
+    user_variables = user_variables or {}
     
     try:
         # Define safe operators
@@ -464,7 +485,19 @@ def evaluate_condition(condition, data):
                 return None
         
         # Create safe variables context
-        safe_vars = {
+        # Start with user variables and data fields
+        safe_vars = {}
+        
+        # Add user variables first
+        for var_name, var_value in user_variables.items():
+            safe_vars[var_name] = var_value
+        
+        # Add all data fields to the safe variables
+        if isinstance(data, dict):
+            safe_vars.update(data)
+        
+        # Define built-in variables that cannot be overwritten
+        builtin_vars = {
             'value': data.get('value'),
             'old_value': data.get('old_value'),
             'data': data,
@@ -474,9 +507,8 @@ def evaluate_condition(condition, data):
             'None': None,
         }
         
-        # Add all data fields to the safe variables
-        if isinstance(data, dict):
-            safe_vars.update(data)
+        # Add built-in variables, ensuring they take precedence
+        safe_vars.update(builtin_vars)
         
         def safe_eval_node(node):
             """Safely evaluate an AST node"""
