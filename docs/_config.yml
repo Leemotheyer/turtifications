@@ -1,8 +1,8 @@
 # Jekyll configuration for GitHub Pages
 title: "Turtifications Documentation"
 description: "A powerful Discord notification system built with Flask"
-url: "https://yourusername.github.io"  # Replace 'yourusername' with your actual GitHub username
-baseurl: "/repository-name"  # Replace 'repository-name' with your actual repository name
+url: ""  # Leave empty for GitHub Pages to auto-detect
+baseurl: ""  # Leave empty for GitHub Pages to auto-detect the repository name
 
 # GitHub Pages settings
 remote_theme: just-the-docs/just-the-docs
