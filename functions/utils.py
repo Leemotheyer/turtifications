@@ -485,7 +485,19 @@ def evaluate_condition(condition, data, user_variables=None):
                 return None
         
         # Create safe variables context
-        safe_vars = {
+        # Start with user variables and data fields
+        safe_vars = {}
+        
+        # Add user variables first
+        for var_name, var_value in user_variables.items():
+            safe_vars[var_name] = var_value
+        
+        # Add all data fields to the safe variables
+        if isinstance(data, dict):
+            safe_vars.update(data)
+        
+        # Define built-in variables that cannot be overwritten
+        builtin_vars = {
             'value': data.get('value'),
             'old_value': data.get('old_value'),
             'data': data,
@@ -495,13 +507,8 @@ def evaluate_condition(condition, data, user_variables=None):
             'None': None,
         }
         
-        # Add all data fields to the safe variables
-        if isinstance(data, dict):
-            safe_vars.update(data)
-        
-        # Add user variables to the context
-        for var_name, var_value in user_variables.items():
-            safe_vars[var_name] = var_value
+        # Add built-in variables, ensuring they take precedence
+        safe_vars.update(builtin_vars)
         
         def safe_eval_node(node):
             """Safely evaluate an AST node"""
