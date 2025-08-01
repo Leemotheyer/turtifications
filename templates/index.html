@@ -84,7 +84,7 @@
                                             Edit
                                         </a>
                                         <button class="btn-toggle-flow" 
-                                                onclick="toggleFlow('{{ flow.name }}', false)" 
+                                                onclick="toggleFlow(event, '{{ flow.name }}', false)" 
                                                 title="Disable Flow">
                                             Disable
                                         </button>
@@ -181,7 +181,7 @@
             }
         });
         
-        function toggleFlow(flowName, active) {
+        function toggleFlow(event, flowName, active) {
             const button = event.target;
             const originalText = button.textContent;
             const flowCard = button.closest('.flow-card');
