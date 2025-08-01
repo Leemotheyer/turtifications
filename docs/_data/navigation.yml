@@ -1,0 +1,110 @@
+# Navigation structure for Turtifications documentation
+
+main:
+  - title: "Getting Started"
+    url: "/getting-started"
+    description: "Installation, setup, and first steps"
+    
+  - title: "Guides"
+    url: "/guides/"
+    description: "Step-by-step tutorials and examples"
+    children:
+      - title: "Creating Notification Flows"
+        url: "/guides/notification-flows"
+        description: "Learn to create custom notification flows"
+      - title: "Using Templates"
+        url: "/guides/templates"
+        description: "Work with pre-built flow templates"
+      - title: "API Usage"
+        url: "/guides/api"
+        description: "Integrate with the REST API"
+        
+  - title: "API"
+    url: "/api/"
+    description: "Complete API reference and examples"
+    children:
+      - title: "API Reference"
+        url: "/api/reference"
+        description: "Full API documentation with examples"
+        
+  - title: "Reference"
+    url: "/reference/"
+    description: "Reference materials and detailed specifications"
+    children:
+      - title: "Template Variables"
+        url: "/reference/variables"
+        description: "Complete variable reference guide"
+        
+  - title: "Configuration"
+    url: "/configuration"
+    description: "Production deployment and configuration"
+    
+  - title: "Troubleshooting"
+    url: "/troubleshooting"
+    description: "Common issues and solutions"
+
+# Quick links for sidebar or footer
+quick_links:
+  - title: "GitHub Repository"
+    url: "https://github.com/yourusername/turtifications"
+    external: true
+    
+  - title: "Report Issues"
+    url: "https://github.com/yourusername/turtifications/issues"
+    external: true
+    
+  - title: "Discussions"
+    url: "https://github.com/yourusername/turtifications/discussions"
+    external: true
+
+# Feature highlights for homepage
+features:
+  - title: "Multiple Triggers"
+    description: "Timer-based, change detection, and webhook triggers"
+    icon: "⏰"
+    
+  - title: "Rich Discord Notifications"
+    description: "Message templates with variables and embeds"
+    icon: "🎨"
+    
+  - title: "Flow Templates"
+    description: "Pre-built templates for popular services"
+    icon: "📋"
+    
+  - title: "Real-time Preview"
+    description: "Preview notifications with live data"
+    icon: "👀"
+    
+  - title: "Statistics & Monitoring"
+    description: "Track usage and performance metrics"
+    icon: "📊"
+    
+  - title: "REST API"
+    description: "Full API for external integrations"
+    icon: "🔌"
+
+# Common tasks for getting started
+common_tasks:
+  - title: "Install Turtifications"
+    url: "/getting-started#installation-methods"
+    description: "Get up and running quickly"
+    
+  - title: "Configure Discord Webhook"
+    url: "/getting-started#configure-discord-webhook"
+    description: "Set up Discord notifications"
+    
+  - title: "Create Your First Flow"
+    url: "/getting-started#creating-your-first-flow"
+    description: "Build a simple notification flow"
+    
+  - title: "Use a Template"
+    url: "/guides/templates#using-templates"
+    description: "Start with a pre-built template"
+    
+  - title: "Deploy to Production"
+    url: "/configuration#production-deployment"
+    description: "Deploy with Gunicorn and systemd"
+    
+  - title: "API Integration"
+    url: "/guides/api#quick-start"
+    description: "Integrate with external systems"
