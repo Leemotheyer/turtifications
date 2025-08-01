@@ -436,8 +436,13 @@ def init_routes(app):
             
             if test_flow.get('endpoint'):
                 try:
+                    # Process endpoint URL with variables
+                    config = get_config()
+                    user_variables = config.get('user_variables', {})
+                    endpoint_url = format_message_template(test_flow['endpoint'], {}, user_variables)
+                    
                     api_data = make_api_request(
-                        test_flow['endpoint'],
+                        endpoint_url,
                         test_flow.get('api_headers'),
                         test_flow.get('api_request_body')
                     )
