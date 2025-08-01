@@ -405,10 +405,12 @@ def safe_eval_calculation(expression, variables):
         log_notification(f"Calculation error in '{expression}': {str(e)}")
         return f"CALC_ERROR({expression})"
 
-def evaluate_condition(condition, data):
+def evaluate_condition(condition, data, user_variables=None):
     """Safely evaluate a condition expression using AST instead of eval()"""
     if not condition or not condition.strip():
         return True
+    
+    user_variables = user_variables or {}
     
     try:
         # Define safe operators
@@ -477,6 +479,10 @@ def evaluate_condition(condition, data):
         # Add all data fields to the safe variables
         if isinstance(data, dict):
             safe_vars.update(data)
+        
+        # Add user variables to the context
+        for var_name, var_value in user_variables.items():
+            safe_vars[var_name] = var_value
         
         def safe_eval_node(node):
             """Safely evaluate an AST node"""

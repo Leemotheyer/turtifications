@@ -68,7 +68,7 @@
                             <input type="url" id="endpoint" name="endpoint" 
                                    value="{{ editing_flow.endpoint if editing_flow else '' }}"
                                    placeholder="https://api.example.com/data">
-                            <small>Optional for timer triggers, required for change detection</small>
+                            <small>Optional for timer triggers, required for change detection. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
                             <label for="field">Field to Use:</label>
                             <input type="text" id="field" name="field" 
                                    value="{{ editing_flow.field if editing_flow else '' }}"
@@ -221,7 +221,7 @@
                                        value="{{ editing_flow.condition if editing_flow else '' }}"
                                        placeholder="value > 100 and status == 'active'">
                                 <small>
-                                    <strong>Available variables:</strong> value, old_value, data, time, and any API data fields
+                                    <strong>Available variables:</strong> value, old_value, data, time, any API data fields, and user variables via {var:variable_name}
                                     <br>
                                     <strong>Examples:</strong>
                                     <br>
@@ -236,6 +236,8 @@
                                     <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
                                     • <code>value > old_value</code> - Only if value increased (for scheduled monitoring)
+                                    <br>
+                                    • <code>{var:threshold} < value</code> - Use user variables in conditions
                                     <br>
                                     <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
@@ -252,14 +254,14 @@
                             <input type="text" id="webhook_name" name="webhook_name" 
                                    value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
                                    placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}</small>
+                            <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
                         </div>
                         <div class="form-group">
                             <label for="webhook_avatar">Webhook Avatar URL:</label>
                             <input type="url" id="webhook_avatar" name="webhook_avatar" 
                                    value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
                                    placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}</small>
+                            <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
                         </div>
                         <div class="form-group">
                             <label for="message_template">Message Template:</label>
