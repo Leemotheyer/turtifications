@@ -510,6 +510,10 @@ def evaluate_condition(condition, data, user_variables=None):
         # Add built-in variables, ensuring they take precedence
         safe_vars.update(builtin_vars)
         
+        # Add user variables to the context
+        for var_name, var_value in user_variables.items():
+            safe_vars[var_name] = var_value
+        
         def safe_eval_node(node):
             """Safely evaluate an AST node"""
             if isinstance(node, ast.Constant):  # Python 3.8+
