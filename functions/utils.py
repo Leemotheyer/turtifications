@@ -338,13 +338,13 @@ def format_message_template(template, data, user_variables=None):
             log_notification(f"Calculation replacement error: {str(e)}")
             return f"CALC_ERROR"
     
-    # First replace all [calculation] patterns using regex
-    calc_pattern = r'\[([^\]]+)\]'
-    result = re.sub(calc_pattern, replace_calculation, template)
-    
-    # Then replace all {variable} patterns
+    # First replace all {variable} patterns
     pattern = r'\{([^}]+)\}'
-    result = re.sub(pattern, replace_template_var, result)
+    result = re.sub(pattern, replace_template_var, template)
+    
+    # Then replace all standalone [calculation] patterns (not inside variables)
+    calc_pattern = r'\[([^\]]+)\]'
+    result = re.sub(calc_pattern, replace_calculation, result)
     
     return result
 
