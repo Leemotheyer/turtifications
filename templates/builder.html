@@ -290,19 +290,13 @@
                                 <br>
                                 • [{price} * {quantity}] total cost
                                 <br>
-                                • [{value} / 100] percentage
-                                <br>
-                                Supports: +, -, *, /, %, ** (power)
-                                <br><br>
-                                <strong>🧮 Calculations:</strong> Use square brackets for math expressions
-                                <br>
-                                • [{value} - {old_value}] total gain
-                                <br>
-                                • [{price} * {quantity}] total cost
+                                • [{var:tax_rate} * {value}] with user variables
                                 <br>
                                 • [{value} / 100] percentage
                                 <br>
                                 Supports: +, -, *, /, %, ** (power)
+                                <br>
+                                <strong>📊 User Variables:</strong> Numeric strings (like "10.5") are automatically converted to numbers in calculations
                                 <br><br>
                                 <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
                                 <br>
@@ -412,8 +406,7 @@
                                 <small>Large image at the bottom of the embed</small>
                             </div>
                             
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
+                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, {data}, and {var:your_variable} work in all embed fields! Calculations like [{value} - {old_value}] and [{var:price} * {quantity}] also work!</small>
                         </div>
                     </section>
                     
