@@ -42,9 +42,12 @@
 
             <section class="test-notification">
                 <h2>Send Test Notification</h2>
-                <form method="post">
+                <form method="post" id="test-form">
                     <input type="text" name="test_message" placeholder="Test message" required>
-                    <button type="submit">Send to Discord</button>
+                    <button type="submit" id="test-submit">
+                        <span class="button-text">Send to Discord</span>
+                        <div class="button-spinner" style="display: none;"></div>
+                    </button>
                 </form>
             </section>
         </div>
@@ -75,33 +78,53 @@
                             <div class="flow-card" data-category="{{ flow.category or 'General' }}">
                                 <div class="flow-header">
                                     <h3>{{ flow.name }}</h3>
-                                    <button class="btn-toggle-flow" 
-                                            onclick="toggleFlow('{{ flow.name }}', false)" 
-                                            title="Disable Flow">
-                                        Disable
-                                    </button>
+                                    <div class="flow-actions">
+                                        <a href="{{ url_for('notification_builder') }}?edit={{ flow.name }}" 
+                                           class="btn-edit-flow" title="Edit Flow">
+                                            Edit
+                                        </a>
+                                        <button class="btn-toggle-flow" 
+                                                onclick="toggleFlow('{{ flow.name }}', false)" 
+                                                title="Disable Flow">
+                                            Disable
+                                        </button>
+                                    </div>
                                 </div>
-                                <p><strong>Category:</strong> {{ flow.category or 'General' }}</p>
-                                <p><strong>Type:</strong> 
-                                    {% if flow.trigger_type == 'timer' %}
-                                        <span class="flow-type timer">Scheduled ({{ flow.interval }}m)</span>
-                                    {% elif flow.trigger_type == 'on_change' %}
-                                        <span class="flow-type change">Change Detection</span>
-                                    {% elif flow.trigger_type == 'on_incoming' %}
-                                        <span class="flow-type webhook">Webhook</span>
-                                    {% endif %}
-                                </p>
-                                <p><strong>Status:</strong> 
+                                
+                                <div class="flow-meta">
+                                    <div class="flow-meta-item">
+                                        <span class="flow-meta-label">Category</span>
+                                        <span class="flow-meta-value">{{ flow.category or 'General' }}</span>
+                                    </div>
+                                    <div class="flow-meta-item">
+                                        <span class="flow-meta-label">Type</span>
+                                        <span class="flow-meta-value">
+                                            {% if flow.trigger_type == 'timer' %}
+                                                <span class="flow-type timer">Scheduled ({{ flow.interval }}m)</span>
+                                            {% elif flow.trigger_type == 'on_change' %}
+                                                <span class="flow-type change">Change Detection</span>
+                                            {% elif flow.trigger_type == 'on_incoming' %}
+                                                <span class="flow-type webhook">Webhook</span>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flow-status">
                                     {% if flow.trigger_type == 'on_change' and 'last_value' in flow %}
-                                        Monitoring (Current: {{ flow.last_value }})
+                                        <div class="status-indicator monitoring"></div>
+                                        <span class="status-text">Monitoring (Current: {{ flow.last_value }})</span>
                                     {% elif flow.trigger_type == 'timer' and 'last_run' in flow %}
-                                        Last ran: {{ flow.last_run|datetimeformat }}
+                                        <div class="status-indicator active"></div>
+                                        <span class="status-text">Last ran: {{ flow.last_run|datetimeformat }}</span>
                                     {% else %}
-                                        Active
+                                        <div class="status-indicator active"></div>
+                                        <span class="status-text">Active</span>
                                     {% endif %}
-                                </p>
+                                </div>
+                                
                                 {% if flow.trigger_type == 'on_incoming' %}
-                                    <p><strong>Webhook URL:</strong> /api/webhook/{{ flow.name }}</p>
+                                    <div class="flow-webhook-url">/api/webhook/{{ flow.name }}</div>
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -141,9 +164,34 @@
                     }
                 });
             }
+            
+            // Test form loading state
+            const testForm = document.getElementById('test-form');
+            if (testForm) {
+                testForm.addEventListener('submit', function() {
+                    const submitButton = document.getElementById('test-submit');
+                    const buttonText = submitButton.querySelector('.button-text');
+                    const buttonSpinner = submitButton.querySelector('.button-spinner');
+                    
+                    submitButton.disabled = true;
+                    buttonText.style.display = 'none';
+                    buttonSpinner.style.display = 'inline-block';
+                    submitButton.classList.add('loading');
+                });
+            }
         });
         
         function toggleFlow(flowName, active) {
+            const button = event.target;
+            const originalText = button.textContent;
+            const flowCard = button.closest('.flow-card');
+            
+            // Add loading state
+            button.disabled = true;
+            button.textContent = 'Loading...';
+            button.classList.add('loading');
+            flowCard.classList.add('flow-card-loading');
+            
             fetch('/toggle_flow', {
                 method: 'POST',
                 headers: {
@@ -157,15 +205,22 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Reload the page to show updated flow status
-                    window.location.reload();
+                    showToast(`Flow "${flowName}" ${active ? 'enabled' : 'disabled'} successfully`, 'success');
+                    // Reload the page after a short delay to show the toast
+                    setTimeout(() => window.location.reload(), 1000);
                 } else {
-                    alert('Failed to toggle flow: ' + (data.error || 'Unknown error'));
+                    throw new Error(data.error || 'Unknown error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to toggle flow');
+                showToast(`Failed to toggle flow: ${error.message}`, 'error');
+                
+                // Reset button state on error
+                button.disabled = false;
+                button.textContent = originalText;
+                button.classList.remove('loading');
+                flowCard.classList.remove('flow-card-loading');
             });
         }
     </script>

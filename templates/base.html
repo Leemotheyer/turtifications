@@ -12,20 +12,41 @@
 </head>
 <body>
     <header>
-        <h1>turtifications</h1>
-        <nav>
-            <a href="{{ url_for('index') }}">Home</a>
-            <a href="{{ url_for('notification_builder') }}">Builder</a>
-            <a href="{{ url_for('show_templates') }}">Templates</a>
-            <a href="{{ url_for('show_flow_stats') }}">Statistics</a>
-            <a href="{{ url_for('api_documentation') }}">API</a>
-            <a href="{{ url_for('configure') }}">Configure</a>
-            <a href="{{ url_for('show_logs') }}">Logs</a>
-        </nav>
+        <div class="header-content">
+            <h1>turtifications</h1>
+            <div class="header-controls">
+                <nav>
+                    <a href="{{ url_for('index') }}">Home</a>
+                    <a href="{{ url_for('notification_builder') }}">Builder</a>
+                    <a href="{{ url_for('show_templates') }}">Templates</a>
+                    <a href="{{ url_for('show_flow_stats') }}">Statistics</a>
+                    <a href="{{ url_for('api_documentation') }}">API</a>
+                    <a href="{{ url_for('configure') }}">Configure</a>
+                    <a href="{{ url_for('show_logs') }}">Logs</a>
+                </nav>
+                <button class="theme-toggle" id="theme-toggle" title="Toggle dark/light mode">
+                    <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
+    <div id="toast-container"></div>
     <script>
     // Toast notification system
     window.showToast = function(message, type = 'info') {
@@ -38,6 +59,55 @@
             toast.remove();
         }, 3000);
     };
+
+    // Theme toggle functionality
+    (function() {
+        const themeToggle = document.getElementById('theme-toggle');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        // Get stored theme or use system preference
+        let currentTheme = localStorage.getItem('theme');
+        if (!currentTheme) {
+            currentTheme = prefersDark.matches ? 'dark' : 'light';
+        }
+        
+        // Apply theme
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            // Update button icons
+            const sunIcon = themeToggle.querySelector('.sun-icon');
+            const moonIcon = themeToggle.querySelector('.moon-icon');
+            
+            if (theme === 'dark') {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            } else {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+        }
+        
+        // Initialize theme
+        applyTheme(currentTheme);
+        
+        // Theme toggle click handler
+        themeToggle.addEventListener('click', () => {
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            currentTheme = newTheme;
+            applyTheme(newTheme);
+            showToast(`Switched to ${newTheme} mode`, 'info');
+        });
+        
+        // Listen for system theme changes
+        prefersDark.addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                currentTheme = e.matches ? 'dark' : 'light';
+                applyTheme(currentTheme);
+            }
+        });
+    })();
     </script>
     {% block scripts %}{% endblock %}
 </body>
