@@ -21,10 +21,13 @@ init_routes(app)
 init_api_routes(app)
 
 if __name__ == '__main__':
-    # Only start the thread in the main process
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+    # Use environment variable for debug mode, default to False for production
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    # Only start the thread in the main process (after reloader in debug mode)
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not debug_mode:
         monitor_thread = Thread(target=check_endpoints)
         monitor_thread.daemon = True
         monitor_thread.start()
     
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=debug_mode, host='0.0.0.0')

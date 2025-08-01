@@ -9,6 +9,7 @@ from functions.flow_stats import get_flow_statistics, get_recent_flow_activity
 from functions.notifications import send_discord_notification
 from functions.utils import get_notification_logs
 import json
+import sys
 
 def init_api_routes(app):
     """Initialize API routes"""
@@ -111,7 +112,8 @@ def init_api_routes(app):
         
         # Notification statistics
         notification_logs = get_notification_logs()
-        total_notifications = len(notification_logs)
+        total_notifications_in_log = len(notification_logs)
+        total_notifications_sent = config.get('total_notifications_sent', 0)
         
         # Calculate notifications in last 24 hours
         now = datetime.now()
@@ -131,7 +133,7 @@ def init_api_routes(app):
                 'active': len(active_flows),
                 'inactive': len(flows) - len(active_flows),
                 'by_type': {
-                    'timer': len(timer_flows),
+                    'scheduled': len(timer_flows),
                     'change_detection': len(change_flows),
                     'webhook': len(webhook_flows)
                 }
@@ -143,7 +145,8 @@ def init_api_routes(app):
                 'last_24h': recent_logs
             },
             'notifications': {
-                'total_sent': total_notifications,
+                'total_sent': total_notifications_sent,
+                'total_in_current_log': total_notifications_in_log,
                 'last_24h': notifications_24h
             }
         })
@@ -197,11 +200,29 @@ def init_api_routes(app):
     def api_test_notification():
         """Send a test notification via API"""
         try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'No JSON data provided'}), 400
+            # Safely parse JSON data with validation
+            data = request.get_json(force=True, silent=False, cache=False)
             
+            # Validate that we received valid JSON data
+            if not data:
+                return jsonify({'error': 'No JSON data provided or invalid JSON format'}), 400
+            
+            # Validate data size to prevent DoS attacks
+            import sys
+            data_size = sys.getsizeof(str(data))
+            max_size = 1024 * 512  # 512KB limit for test notifications
+            if data_size > max_size:
+                return jsonify({'error': f'Request data too large ({data_size} bytes, max {max_size})'}), 413
+            
+            # Extract and validate message
             message = data.get('message', 'Test notification from API')
+            if not isinstance(message, str):
+                return jsonify({'error': 'Message must be a string'}), 400
+            
+            # Validate message length
+            if len(message) > 2000:  # Discord message limit
+                return jsonify({'error': 'Message too long (max 2000 characters)'}), 400
+            
             webhook_url = data.get('webhook_url')
             
             if not webhook_url:
@@ -210,6 +231,10 @@ def init_api_routes(app):
                 webhook_url = config.get('discord_webhook')
                 if not webhook_url:
                     return jsonify({'error': 'No webhook URL provided and no default configured'}), 400
+            
+            # Validate webhook URL format
+            if not isinstance(webhook_url, str) or not webhook_url.startswith('https://'):
+                return jsonify({'error': 'Invalid webhook URL format'}), 400
             
             # Create a simple test flow
             test_flow = {
@@ -231,6 +256,11 @@ def init_api_routes(app):
                     'error': 'Failed to send notification'
                 }), 500
                 
+        except ValueError as json_error:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid JSON format'
+            }), 400
         except Exception as e:
             return jsonify({
                 'success': False,

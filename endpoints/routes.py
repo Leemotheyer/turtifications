@@ -81,7 +81,7 @@ def init_routes(app):
                 # System settings
                 check_interval = int(request.form.get('check_interval', 5))
                 log_retention = int(request.form.get('log_retention', 1000))
-                notification_log_retention = int(request.form.get('notification_log_retention', 100))
+                notification_log_retention = int(request.form.get('notification_log_retention', 500))
                 # User variables
                 var_keys = request.form.getlist('var_key[]')
                 var_vals = request.form.getlist('var_value[]')
@@ -100,8 +100,8 @@ def init_routes(app):
                 if log_retention < 100 or log_retention > 10000:
                     flash('Log retention must be between 100 and 10000 entries', 'error')
                     return redirect(url_for('configure'))
-                if notification_log_retention < 10 or notification_log_retention > 1000:
-                    flash('Notification log retention must be between 10 and 1000 entries', 'error')
+                if notification_log_retention < 10 or notification_log_retention > 500:
+                    flash('Notification log retention must be between 10 and 500 entries', 'error')
                     return redirect(url_for('configure'))
                 # Update configuration
                 config['discord_webhook'] = webhook_url
@@ -167,9 +167,12 @@ def init_routes(app):
             try:
                 # Validate required fields
                 webhook_url = request.form.get('webhook_url', '').strip()
+                # If no webhook URL provided, check if there's a default configured
                 if not webhook_url:
-                    flash('Webhook URL is required', 'error')
-                    return redirect(url_for('notification_builder'))
+                    default_webhook = config.get('discord_webhook', '')
+                    if not default_webhook:
+                        flash('Webhook URL is required (no default configured)', 'error')
+                        return redirect(url_for('notification_builder'))
                     
                 if not request.form.get('flow_name'):
                     flash('Flow name is required', 'error')
@@ -234,7 +237,7 @@ def init_routes(app):
                 updated_flow = {
                     'name': request.form['flow_name'],
                     'trigger_type': trigger_type,
-                    'webhook_url': webhook_url,
+                    'webhook_url': webhook_url,  # Store empty string if not provided, will use default
                     'webhook_name': request.form.get('webhook_name', '').strip(),  # Allow empty
                     'webhook_avatar': request.form.get('webhook_avatar', '').strip(),  # Allow empty
                     'message_template': request.form.get('message_template', ''),
@@ -309,18 +312,40 @@ def init_routes(app):
     @app.route('/toggle_flow', methods=['POST'])
     def toggle_flow():
         try:
-            data = request.get_json()
+            # Safely parse JSON data with validation
+            data = request.get_json(force=True, silent=False, cache=False)
+            
+            # Validate that we received valid JSON data
+            if data is None:
+                return jsonify({'success': False, 'error': 'Invalid or missing JSON data'}), 400
+            
+            # Validate required fields
+            if 'flow_name' not in data or 'active' not in data:
+                return jsonify({'success': False, 'error': 'Missing required fields: flow_name, active'}), 400
+            
+            # Validate data types
+            if not isinstance(data['flow_name'], str) or not isinstance(data['active'], bool):
+                return jsonify({'success': False, 'error': 'Invalid data types: flow_name must be string, active must be boolean'}), 400
+            
             config = get_config()
             
             for flow in config['notification_flows']:
                 if flow['name'] == data['flow_name']:
                     flow['active'] = data['active']
-                    save_config(config)
-                    return jsonify({'success': True})
+                    try:
+                        save_config(config)
+                        return jsonify({'success': True})
+                    except Exception as save_error:
+                        log_notification(f"Failed to save config when toggling flow {data['flow_name']}: {str(save_error)}")
+                        return jsonify({'success': False, 'error': 'Failed to save configuration'}), 500
             
-            return jsonify({'success': False, 'error': 'Flow not found'})
+            return jsonify({'success': False, 'error': 'Flow not found'}), 404
+            
+        except ValueError as json_error:
+            return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
         except Exception as e:
-            return jsonify({'success': False, 'error': str(e)})
+            log_notification(f"Toggle flow error: {str(e)}")
+            return jsonify({'success': False, 'error': 'Server error'}), 500
 
     @app.route('/delete_flow/<int:index>')
     def delete_flow(index):
@@ -393,7 +418,10 @@ def init_routes(app):
 
             # Validate required fields
             if not test_flow['webhook_url']:
-                return jsonify({'success': False, 'error': 'Webhook URL is required'})
+                # Check if there's a default webhook URL configured
+                default_webhook = config.get('discord_webhook', '')
+                if not default_webhook:
+                    return jsonify({'success': False, 'error': 'Webhook URL is required (no default configured)'})
             
             # Allow empty message template if embed is enabled
             if not test_flow['message_template'] and not test_flow.get('embed_config', {}).get('enabled', False):
@@ -474,22 +502,58 @@ def init_routes(app):
                 abort(403, description="Invalid webhook secret")
         
         try:
-            data = request.get_json()
+            # Safely parse JSON data with proper validation
+            data = request.get_json(force=True, silent=False, cache=False)
+            
+            # Validate that we actually received JSON data
+            if data is None:
+                log_notification(f"Webhook error for {flow_name}: No valid JSON data received")
+                abort(400, description="Invalid or missing JSON data")
+            
+            # Validate data size to prevent DoS attacks
+            data_size = sys.getsizeof(str(data))
+            max_size = 1024 * 1024  # 1MB limit
+            if data_size > max_size:
+                log_notification(f"Webhook error for {flow_name}: Data too large ({data_size} bytes)")
+                abort(413, description="Request data too large")
             
             # Store the data in the flow for use in message formatting
             flow['last_data'] = data
             
+            # Create enhanced data object with old_value support
+            webhook_data = data.copy() if isinstance(data, dict) else {}
+            # Add old_value from previous webhook call if available
+            webhook_data['old_value'] = flow.get('last_value')
+            
+            # Extract value from current data if there's a field configured
+            current_value = None
+            if flow.get('field'):
+                from functions.notifications import extract_field_value
+                current_value = extract_field_value(data, flow['field'])
+                webhook_data['value'] = current_value
+            
             # Send notification
             log_notification(f"🌐 Webhook received: Processing webhook for flow '{flow_name}'")
-            if send_discord_notification(flow['message_template'], flow, data):
-                save_config(config)  # Save the updated flow with last_data
+            if send_discord_notification(flow['message_template'], flow, webhook_data):
+                # Store current value as last_value for next webhook call
+                if current_value is not None:
+                    flow['last_value'] = current_value
+                try:
+                    save_config(config)  # Save the updated flow with last_data
+                except Exception as save_error:
+                    log_notification(f"Failed to save config after webhook for {flow_name}: {str(save_error)}")
+                    # Continue execution - notification was sent successfully
                 return jsonify({"status": "success"})
             else:
                 abort(500, description="Failed to send notification")
                 
+        except ValueError as json_error:
+            # Handle JSON parsing errors specifically
+            log_notification(f"Webhook JSON parsing error for {flow_name}: {str(json_error)}")
+            abort(400, description="Invalid JSON format")
         except Exception as e:
             log_notification(f"Webhook error for {flow_name}: {str(e)}")
-            abort(400, description=str(e))
+            abort(400, description="Webhook processing failed")
 
     # ===== NEW FEATURES ROUTES =====
     
@@ -626,6 +690,10 @@ def init_routes(app):
     def preview_notification():
         """Preview how a notification will look"""
         try:
+            # Load user variables from config
+            config = get_config()
+            user_variables = config.get('user_variables', {})
+            
             # Get form data
             message_template = request.form.get('message_template', '')
             embed_enabled = request.form.get('embed_enabled') == 'true'
@@ -695,7 +763,7 @@ def init_routes(app):
             api_request_body = request.form.get('api_request_body', '')
 
             # Format the message
-            formatted_message = format_message_template(message_template, sample_data)
+            formatted_message = format_message_template(message_template, sample_data, user_variables)
             
             # Create embed preview if enabled
             embed_preview = None
@@ -718,7 +786,7 @@ def init_routes(app):
                     'dynamic_fields': []
                 }
                 
-                embed_preview = create_discord_embed(embed_config, sample_data)
+                embed_preview = create_discord_embed(embed_config, sample_data, user_variables)
             
             return jsonify({
                 'success': True,

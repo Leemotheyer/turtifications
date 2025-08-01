@@ -260,7 +260,10 @@
                 <strong>Get statistics:</strong>
                 <pre><code>fetch('{{ request.url_root.rstrip('/') }}/api/statistics')
   .then(response => response.json())
-  .then(data => console.log(data));</code></pre>
+  .then(data => {
+    // Handle statistics data
+    document.getElementById('stats-result').textContent = JSON.stringify(data, null, 2);
+  });</code></pre>
             </div>
             
             <div class="code-block">

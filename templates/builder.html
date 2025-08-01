@@ -28,8 +28,9 @@
                         <div class="form-group">
                             <label for="webhook_url">Discord Webhook URL:</label>
                             <input type="url" id="webhook_url" name="webhook_url" 
-                                   value="{{ editing_flow.webhook_url if editing_flow else webhook_url }}" 
-                                   placeholder="https://discord.com/api/webhooks/..." required>
+                                   value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
+                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
+                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>
@@ -57,31 +58,7 @@
 
                     <section class="builder-section">
                         <h3>Trigger Settings</h3>
-                        <div class="form-group">
-                            <h4>Webhook Receiver</h4>
-                            <label>
-                                <input type="checkbox" name="accept_webhooks" id="accept_webhooks" value="true"
-                                       {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
-                                Accept incoming webhooks
-                            </label>
-                            <div id="require-secret-container" style="display: none; margin-top: 8px;">
-                                <label>
-                                    <input type="checkbox" name="require_webhook_secret" id="require_webhook_secret" value="true"
-                                           {% if editing_flow and editing_flow.webhook_secret %}checked{% endif %}>
-                                    Require secret key for incoming webhooks (X-Secret header)
-                                </label>
-                            </div>
-                            <div class="webhook-info" style="display: none;">
-                                <p>Use this URL to receive webhooks from external services:</p>
-                                <div class="webhook-url">
-                                    <code id="webhook-url-display">/api/webhook/</code>
-                                    <input type="text" id="flow-name-display" 
-                                           value="{{ editing_flow.name if editing_flow else '' }}" readonly>
-                                    <button type="button" onclick="copyWebhookUrl()">Copy</button>
-                                </div>
-                                <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
-                            </div>
-                        </div>
+
                         <div class="form-group">
                             <label for="endpoint">API Endpoint:</label>
                             <input type="url" id="endpoint" name="endpoint" 
@@ -141,16 +118,49 @@
                             <div class="radio-group">
                                 <label>
                                     <input type="radio" name="trigger_type" value="timer"
-                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> Timer
+                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
+                                    <strong>Scheduled Monitoring</strong>
+                                    <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="on_change"
-                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> On Change
+                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
+                                    <strong>Change Detection</strong>
+                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
                                 </label>
-                                <label id="on-incoming-option" style="display: none;">
-                                    <input type="radio" name="trigger_type" value="on_incoming"
-                                           {% if editing_flow and editing_flow.trigger_type == 'on_incoming' or (template_data and template_data.trigger_type == 'on_incoming') %}checked{% endif %}> On Incoming Webhook
+                                <label>
+                                    <input type="checkbox" name="accept_webhooks" id="accept_webhooks" value="true"
+                                           {% if editing_flow and editing_flow.accept_webhooks %}checked{% endif %}> 
+                                    <strong>Incoming Webhook</strong>
+                                    <small>Responds to incoming webhook calls from external services</small>
                                 </label>
+                            </div>
+                            <div class="help-text">
+                                <small>
+                                    <strong>💡 Which trigger type should I choose?</strong><br>
+                                    • <strong>Scheduled:</strong> Use for regular reports, health checks, or when you want notifications at specific times regardless of data changes<br>
+                                    • <strong>Change Detection:</strong> Use for immediate alerts when something changes (status updates, new data, thresholds crossed)<br>
+                                    • <strong>Incoming Webhook:</strong> Use when external systems need to trigger notifications
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-group" id="webhook-options" style="display: none;">
+                            <div id="require-secret-container" style="margin-bottom: 12px;">
+                                <label>
+                                    <input type="checkbox" name="require_webhook_secret" id="require_webhook_secret" value="true"
+                                           {% if editing_flow and editing_flow.webhook_secret %}checked{% endif %}>
+                                    Require secret key for incoming webhooks (X-Secret header)
+                                </label>
+                            </div>
+                            <div class="webhook-info">
+                                <p>Use this URL to receive webhooks from external services:</p>
+                                <div class="webhook-url">
+                                    <code id="webhook-url-display">/api/webhook/</code>
+                                    <input type="text" id="flow-name-display" 
+                                           value="{{ editing_flow.name if editing_flow else '' }}" readonly>
+                                    <button type="button" onclick="copyWebhookUrl()">Copy</button>
+                                </div>
+                                <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
                             </div>
                         </div>
                         <div class="form-group" id="timer-options" style="display: none;">
@@ -164,7 +174,7 @@
                                        {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
                                 Enable Conditional Notifications
                             </label>
-                            <small>Only send notifications when conditions are met</small>
+                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
                         </div>
                         <div id="condition-config" style="display: none;">
                             <div class="form-group">
@@ -181,9 +191,11 @@
                                     <br>
                                     • <code>result['downloaded_issues'] > 0</code> - Only if downloads exist
                                     <br>
-                                    • <code>value != old_value and value != 'error'</code> - Only on change and not error
-                                    <br>
                                     • <code>data['status'] == 'active'</code> - Only if status is active
+                                    <br>
+                                    • <code>value > old_value</code> - Only if value increased (for scheduled monitoring)
+                                    <br>
+                                    <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
                                     <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
                                 </small>
@@ -219,13 +231,23 @@
                                 <br><br>
                                 <strong>For API data:</strong> Use {value} or {data} for full response
                                 <br>
-                                <strong>Examples:</strong>
+                                <strong>Variable Examples:</strong>
                                 <br>
                                 • {result['downloaded_issues']} - Access nested data
                                 <br>
                                 • {result['0']['web_title']} - Access array data
                                 <br>
                                 • {time} - Current timestamp
+                                <br><br>
+                                <strong>🧮 Calculations:</strong> Use square brackets for math expressions
+                                <br>
+                                • [{value} - {old_value}] total gain
+                                <br>
+                                • [{price} * {quantity}] total cost
+                                <br>
+                                • [{value} / 100] percentage
+                                <br>
+                                Supports: +, -, *, /, %, ** (power)
                                 <br><br>
                                 <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
                                 <br>
@@ -254,7 +276,7 @@
                                 <label for="embed_description">Embed Description:</label>
                                 <textarea id="embed_description" name="embed_description" rows="3"
                                           placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
-                                <small>Supports the same variables as message template</small>
+                                <small>Supports the same variables and calculations as message template</small>
                             </div>
                             
                             <div class="form-group">
@@ -334,7 +356,7 @@
                                 <small>Large image at the bottom of the embed</small>
                             </div>
                             
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields!</small>
+                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
                         </div>
                     </section>
                     
@@ -404,11 +426,12 @@
                             Timer (every {{ flow.interval }} minutes)
                         {% elif flow.trigger_type == 'on_change' %}
                             On Change ({{ flow.field }} on {{ flow.endpoint }})
-                        {% else %}
-                            On Incoming Webhook
+                        {% endif %}
+                        {% if flow.accept_webhooks %}
+                            {% if flow.trigger_type == 'timer' or flow.trigger_type == 'on_change' %} + {% endif %}Incoming Webhook
                         {% endif %}
                     </p>
-                    {% if flow.accept_webhooks or flow.trigger_type == 'on_incoming' %}
+                    {% if flow.accept_webhooks %}
                     <p><strong>Webhook URL:</strong> /api/webhook/{{ flow.name }}</p>
                     {% if flow.webhook_secret %}
                     <p><strong>Webhook Secret:</strong> {{ flow.webhook_secret }}</p>
@@ -461,11 +484,10 @@
             // Form Configuration Elements
             const flowNameInput = document.getElementById('flow_name');
             const webhookDisplay = document.getElementById('flow-name-display');
-            const webhookSection = document.querySelector('.webhook-info');
+            const webhookOptions = document.getElementById('webhook-options');
             const acceptWebhooksCheckbox = document.getElementById('accept_webhooks');
             const requireSecretContainer = document.getElementById('require-secret-container');
             const requireSecretCheckbox = document.getElementById('require_webhook_secret');
-            const onIncomingOption = document.getElementById('on-incoming-option');
             const timerOptions = document.getElementById('timer-options');
             const changeOptions = document.getElementById('on-change-options');
             const triggerTypeRadios = document.querySelectorAll('input[name="trigger_type"]');
@@ -491,18 +513,10 @@
             if (acceptWebhooksCheckbox) {
                 acceptWebhooksCheckbox.addEventListener('change', function() {
                     updateWebhookVisibility();
-                    updateTriggerOptions();
                 });
             }
 
-            if (requireSecretContainer && requireSecretCheckbox) {
-                requireSecretContainer.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
-                requireSecretCheckbox.addEventListener('change', function() {
-                    // This checkbox is not directly tied to a form field,
-                    // so we don't need to append it to FormData.
-                    // It's just for UI feedback.
-                });
-            }
+
         
             // Update options when trigger type changes
             triggerTypeRadios.forEach(radio => {
@@ -605,11 +619,8 @@
         
             // Helper functions
             function updateWebhookVisibility() {
-                if (acceptWebhooksCheckbox && webhookSection) {
-                    webhookSection.style.display = acceptWebhooksCheckbox.checked ? 'block' : 'none';
-                }
-                if (requireSecretContainer && requireSecretCheckbox) {
-                    requireSecretContainer.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
+                if (acceptWebhooksCheckbox && webhookOptions) {
+                    webhookOptions.style.display = acceptWebhooksCheckbox.checked ? 'block' : 'none';
                 }
             }
             
@@ -637,11 +648,6 @@
         
             function updateTriggerOptions() {
                 const selectedTrigger = document.querySelector('input[name="trigger_type"]:checked')?.value || 'on_change';
-                
-                // Show/hide On Incoming option
-                if (onIncomingOption) {
-                    onIncomingOption.style.display = acceptWebhooksCheckbox?.checked ? 'block' : 'none';
-                }
         
                 // Show/hide Timer options
                 if (timerOptions) {

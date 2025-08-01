@@ -203,84 +203,122 @@ def make_api_request(endpoint, headers=None, request_body=None):
 
 def check_endpoints():
     """Monitor endpoints and send notifications based on triggers"""
+    max_consecutive_errors = 5
+    consecutive_errors = 0
+    base_retry_delay = 1  # Start with 1 second delay
+    
     while True:
-        config = get_config()
-        check_interval = config.get('check_interval', 5)  # Default to 5 seconds
-        config_changed = False  # Track if we need to save
-        
-        for flow in config.get('notification_flows', []):
-            if not flow.get('active', False):
-                continue 
-            try:
-                # Skip webhook-triggered flows
-                if flow['trigger_type'] == 'on_incoming':
-                    continue
-                
-                # Get API data if endpoint is configured
-                api_data = None
-                current_value = None
-                if flow.get('endpoint'):
-                    try:
-                        api_data = make_api_request(
-                            flow['endpoint'],
-                            flow.get('api_headers'),
-                            flow.get('api_request_body')
-                        )
-                        # Extract field value using the same logic as template formatter
-                        if flow.get('field'):
-                            current_value = extract_field_value(api_data, flow['field'])
-                        else:
-                            current_value = None
-                    except Exception as api_error:
-                        log_notification(f"API error in {flow['name']}: {str(api_error)}")
+        try:
+            config = get_config()
+            check_interval = config.get('check_interval', 5)  # Default to 5 seconds
+            config_changed = False  # Track if we need to save
+            
+            for flow in config.get('notification_flows', []):
+                if not flow.get('active', False):
+                    continue 
+                try:
+                    # Skip webhook-triggered flows
+                    if flow['trigger_type'] == 'on_incoming':
                         continue
-                
-                # Handle timer-based flows
-                if flow['trigger_type'] == 'timer':
-                    now = time.time()
-                    last_run = flow.get('last_run', 0)
-                    interval = flow.get('interval', 5) * 60
                     
-                    if now - last_run >= interval:
-                        log_notification(f"⏰ Timer trigger: Sending notification for flow '{flow['name']}'")
-                        # Create data object for condition evaluation
-                        timer_data = api_data.copy() if api_data else {}
-                        timer_data.update({
-                            'value': current_value,
-                            'api_data': api_data
-                        })
-                        if send_discord_notification(flow['message_template'], flow, timer_data):
-                            flow['last_run'] = now
-                            config_changed = True
-                
-                # Handle change detection flows
-                elif flow['trigger_type'] == 'on_change':
-                    if not flow.get('endpoint') or not flow.get('field'):
-                        continue
+                    # Get API data if endpoint is configured
+                    api_data = None
+                    current_value = None
+                    if flow.get('endpoint'):
+                        try:
+                            api_data = make_api_request(
+                                flow['endpoint'],
+                                flow.get('api_headers'),
+                                flow.get('api_request_body')
+                            )
+                            # Extract field value using the same logic as template formatter
+                            if flow.get('field'):
+                                current_value = extract_field_value(api_data, flow['field'])
+                            else:
+                                current_value = None
+                        except Exception as api_error:
+                            log_notification(f"API error in {flow['name']}: {str(api_error)}")
+                            continue
+                    
+                    # Handle scheduled monitoring (timer-based flows)
+                    if flow['trigger_type'] == 'timer':
+                        now = time.time()
+                        last_run = flow.get('last_run', 0)
+                        interval = flow.get('interval', 5) * 60
                         
-                    if 'last_value' not in flow:
-                        flow['last_value'] = current_value
-                        config_changed = True
-                        continue
+                        if now - last_run >= interval:
+                            log_notification(f"⏰ Scheduled monitoring: Running check for flow '{flow['name']}'")
+                            # Create data object for condition evaluation
+                            timer_data = api_data.copy() if api_data else {}
+                            timer_data.update({
+                                'value': current_value,
+                                'old_value': flow.get('last_value'),  # Include old_value for template support
+                                'api_data': api_data
+                            })
+                            if send_discord_notification(flow['message_template'], flow, timer_data):
+                                flow['last_run'] = now
+                                # Store current value as last_value for next run
+                                flow['last_value'] = current_value
+                                config_changed = True
                     
-                    if current_value != flow['last_value']:
-                        log_notification(f"🔄 Change detected: Field '{flow['field']}' changed from '{flow['last_value']}' to '{current_value}' in flow '{flow['name']}'")
-                        # Create a data object that includes both API data and change information
-                        change_data = api_data.copy() if api_data else {}
-                        change_data.update({
-                            'value': current_value,
-                            'old_value': flow['last_value'],
-                            'api_data': api_data  # Keep original API data as well
-                        })
-                        if send_discord_notification(flow['message_template'], flow, change_data):
+                    # Handle change detection flows (immediate on change)
+                    elif flow['trigger_type'] == 'on_change':
+                        if not flow.get('endpoint') or not flow.get('field'):
+                            continue
+                            
+                        # Initialize last_value if not present
+                        if 'last_value' not in flow:
                             flow['last_value'] = current_value
                             config_changed = True
-                            
-            except Exception as e:
-                log_notification(f"Error in flow {flow.get('name', 'unnamed')}: {str(e)}")
-        
-        # Only save if something changed
-        if config_changed:
-            save_config(config)
-        
-        time.sleep(check_interval)  # Use configurable check interval 
+                            log_notification(f"🔍 Change detection: Initialized baseline for flow '{flow['name']}' with value '{current_value}'")
+                            continue
+                        
+                        # Only proceed if value actually changed
+                        if current_value != flow['last_value']:
+                            log_notification(f"🔄 Change detected: Field '{flow['field']}' changed from '{flow['last_value']}' to '{current_value}' in flow '{flow['name']}'")
+                            # Create a data object that includes both API data and change information
+                            change_data = api_data.copy() if api_data else {}
+                            change_data.update({
+                                'value': current_value,
+                                'old_value': flow['last_value'],
+                                'api_data': api_data  # Keep original API data as well
+                            })
+                            if send_discord_notification(flow['message_template'], flow, change_data):
+                                flow['last_value'] = current_value
+                                config_changed = True
+                                
+                except Exception as e:
+                    log_notification(f"Error in flow {flow.get('name', 'unnamed')}: {str(e)}")
+            
+            # Only save if something changed
+            if config_changed:
+                try:
+                    save_config(config)
+                except Exception as save_error:
+                    log_notification(f"Failed to save config: {str(save_error)}")
+            
+            # Reset error counter on successful iteration
+            consecutive_errors = 0
+            
+            time.sleep(check_interval)  # Use configurable check interval
+            
+        except KeyboardInterrupt:
+            # Handle graceful shutdown
+            log_notification("Monitoring thread received shutdown signal")
+            break
+            
+        except Exception as main_error:
+            # Handle any unexpected errors in the main loop
+            consecutive_errors += 1
+            retry_delay = min(base_retry_delay * (2 ** (consecutive_errors - 1)), 60)  # Exponential backoff, max 60s
+            
+            log_notification(f"Monitoring thread error #{consecutive_errors}: {str(main_error)}")
+            
+            if consecutive_errors >= max_consecutive_errors:
+                log_notification(f"Too many consecutive errors ({consecutive_errors}). Monitoring thread will restart with {retry_delay}s delay.")
+                consecutive_errors = 0  # Reset counter
+            
+            # Wait before retrying, but don't let the delay get too long
+            time.sleep(retry_delay)
+    
+    log_notification("Monitoring thread stopped") 
