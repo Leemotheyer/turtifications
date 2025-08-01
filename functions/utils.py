@@ -5,6 +5,31 @@ import operator
 from datetime import datetime
 from functions.config import get_logs, save_logs, get_config, save_config
 
+def get_nested_value(data_dict, path):
+    """Get a nested value from a dictionary using dot notation"""
+    if not data_dict or not path:
+        return None
+    
+    try:
+        keys = path.split('.')
+        current = data_dict
+        
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            elif isinstance(current, list) and key.isdigit():
+                index = int(key)
+                if 0 <= index < len(current):
+                    current = current[index]
+                else:
+                    return None
+            else:
+                return None
+        
+        return current
+    except Exception:
+        return None
+
 def get_notification_logs():
     """Get notification-specific logs"""
     try:
@@ -25,6 +50,10 @@ def detect_log_category(message):
     """Auto-detect log category based on message content"""
     message_lower = message.lower()
     
+    # Error-related
+    if any(keyword in message_lower for keyword in ['error', 'failed', 'exception', 'processing failed']):
+        return 'Errors'
+    
     # Notification-related
     if any(keyword in message_lower for keyword in ['notification sent', 'discord webhook', '✅', '❌']):
         return 'Notifications'
@@ -36,10 +65,6 @@ def detect_log_category(message):
     # System-related
     if any(keyword in message_lower for keyword in ['system', 'config', 'configuration', 'setting']):
         return 'System'
-    
-    # Error-related
-    if any(keyword in message_lower for keyword in ['error', 'failed', '❌', 'exception']):
-        return 'Errors'
     
     # Test-related
     if any(keyword in message_lower for keyword in ['test', '🧪', 'preview']):
@@ -150,28 +175,6 @@ def format_message_template(template, data, user_variables=None):
     """Simple and reliable message template formatter with user variable support and calculations"""
     user_variables = user_variables or {}
     
-    def get_nested_value(data_dict, path):
-        """Safely get nested dictionary value using dot notation"""
-        try:
-            # Convert path like "result.downloaded_issues" to nested access
-            keys = path.split('.')
-            current = data_dict
-            for key in keys:
-                if isinstance(current, dict) and key in current:
-                    current = current[key]
-                elif isinstance(current, list) and key.isdigit():
-                    # Handle array access
-                    index = int(key)
-                    if 0 <= index < len(current):
-                        current = current[index]
-                    else:
-                        return None
-                else:
-                    return None
-            return current
-        except:
-            return None
-
     def replace_template_var(match):
         """Replace template variables with actual values"""
         try:
@@ -236,12 +239,36 @@ def format_message_template(template, data, user_variables=None):
                     return json.dumps(data[var_expr], indent=2)
                 return str(data[var_expr])
             
-            # Handle user variables: {var:your_variable}
-            if var_expr.startswith('var:'):
-                var_name = var_expr[4:]
+            # Handle user variables: {$variable} format
+            if var_expr.startswith('$'):
+                var_name = var_expr[1:]
                 if var_name in user_variables:
                     return str(user_variables[var_name])
                 return 'N/A'
+            
+            # Handle calculations: {calc:expression} format
+            if var_expr.startswith('calc:'):
+                calc_expr = var_expr[5:]
+                # Use the existing calculation logic
+                return replace_calculation(re.match(r'\[([^\]]+)\]', f"[{calc_expr}]"))
+            
+            # Handle bracket notation: {key['subkey']} format
+            if var_expr.endswith("']") and "['" in var_expr:
+                # Convert bracket notation to dot notation
+                path = var_expr.replace("['", ".").replace("']", "")
+                value = get_nested_value(data, path)
+                if value is not None:
+                    return str(value)
+                return "N/A"
+            
+            # Try to get nested value using dot notation
+            value = get_nested_value(data, var_expr)
+            if value is not None:
+                return str(value)
+            
+            # Try direct access in data
+            if var_expr in data:
+                return str(data[var_expr])
             
             return "N/A"
             
@@ -442,26 +469,7 @@ def evaluate_condition(condition, data):
             ast.USub: operator.neg,
         }
         
-        def get_nested_value(data_dict, path):
-            """Safely get nested dictionary value using dot notation"""
-            try:
-                keys = path.split('.')
-                current = data_dict
-                for key in keys:
-                    if isinstance(current, dict) and key in current:
-                        current = current[key]
-                    elif isinstance(current, list) and key.isdigit():
-                        index = int(key)
-                        if 0 <= index < len(current):
-                            current = current[index]
-                        else:
-                            return None
-                    else:
-                        return None
-                return current
-            except Exception as e:
-                log_notification(f"Field extraction error for '{path}': {str(e)}")
-                return None
+        # Use the top-level get_nested_value function
         
         # Create safe variables context
         safe_vars = {
@@ -472,6 +480,7 @@ def evaluate_condition(condition, data):
             'True': True,
             'False': False,
             'None': None,
+            'len': len,  # Add built-in len function
         }
         
         # Add all data fields to the safe variables
@@ -493,6 +502,18 @@ def evaluate_condition(condition, data):
                     return safe_vars[node.id]
                 else:
                     raise ValueError(f"Variable '{node.id}' not allowed")
+            elif isinstance(node, ast.Call):
+                # Handle function calls like len()
+                if isinstance(node.func, ast.Name):
+                    func_name = node.func.id
+                    if func_name in safe_vars and callable(safe_vars[func_name]):
+                        # Evaluate arguments
+                        args = [safe_eval_node(arg) for arg in node.args]
+                        return safe_vars[func_name](*args)
+                    else:
+                        raise ValueError(f"Function '{func_name}' not allowed")
+                else:
+                    raise ValueError("Only simple function calls are allowed")
             elif isinstance(node, ast.BinOp):
                 left = safe_eval_node(node.left)
                 right = safe_eval_node(node.right)

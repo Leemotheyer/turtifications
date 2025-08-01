@@ -129,6 +129,12 @@ def get_nested_value(data, path):
         for key in keys:
             if isinstance(current, dict) and key in current:
                 current = current[key]
+            elif isinstance(current, list) and key.isdigit():
+                index = int(key)
+                if 0 <= index < len(current):
+                    current = current[index]
+                else:
+                    return None
             else:
                 return None
         return current
@@ -182,14 +188,18 @@ def format_field_value(value, format_type):
 
 def format_file_size(size_bytes):
     """Format file size in human readable format"""
-    if size_bytes < 1024:
+    if size_bytes < 0:
+        return "0 B"
+    elif size_bytes < 1024:
         return f"{size_bytes} B"
     elif size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.1f} KB"
+        return f"{size_bytes / 1024:.2f} KB"
     elif size_bytes < 1024 * 1024 * 1024:
-        return f"{size_bytes / (1024 * 1024):.1f} MB"
+        return f"{size_bytes / (1024 * 1024):.2f} MB"
+    elif size_bytes < 1024 * 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
     else:
-        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+        return f"{size_bytes / (1024 * 1024 * 1024 * 1024):.2f} TB"
 
 def validate_embed_config(embed_config):
     """Validate embed configuration and return any errors"""

@@ -30,10 +30,6 @@
                             <input type="url" id="webhook_url" name="webhook_url" 
                                    value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
                                    placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
-                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
-                                   value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
-                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
-                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>
@@ -125,18 +121,12 @@
                                            {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
                                     <strong>Scheduled Monitoring</strong>
                                     <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
-                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
-                                    <strong>Scheduled Monitoring</strong>
-                                    <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="on_change"
                                            {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
                                     <strong>Change Detection</strong>
-                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
-                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
-                                    <strong>Change Detection</strong>
-                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
+                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small> 
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="webhook"
@@ -211,8 +201,6 @@
                                        {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
                                 Enable Conditional Notifications
                             </label>
-                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
-                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
                         </div>
                         <div id="condition-config" style="display: none;">
                             <div class="form-group">
@@ -252,14 +240,12 @@
                             <input type="text" id="webhook_name" name="webhook_name" 
                                    value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
                                    placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="webhook_avatar">Webhook Avatar URL:</label>
                             <input type="url" id="webhook_avatar" name="webhook_avatar" 
                                    value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
                                    placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="message_template">Message Template:</label>
@@ -281,16 +267,6 @@
                                 • {result['0']['web_title']} - Access array data
                                 <br>
                                 • {time} - Current timestamp
-                                <br><br>
-                                <strong>🧮 Calculations:</strong> Use square brackets for math expressions
-                                <br>
-                                • [{value} - {old_value}] total gain
-                                <br>
-                                • [{price} * {quantity}] total cost
-                                <br>
-                                • [{value} / 100] percentage
-                                <br>
-                                Supports: +, -, *, /, %, ** (power)
                                 <br><br>
                                 <strong>🧮 Calculations:</strong> Use square brackets for math expressions
                                 <br>
@@ -329,7 +305,6 @@
                                 <label for="embed_description">Embed Description:</label>
                                 <textarea id="embed_description" name="embed_description" rows="3"
                                           placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
-                                <small>Supports the same variables and calculations as message template</small>
                                 <small>Supports the same variables and calculations as message template</small>
                             </div>
                             

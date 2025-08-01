@@ -19,6 +19,7 @@ class ColoredTextTestResult(unittest.TextTestResult):
     
     def __init__(self, stream, descriptions, verbosity):
         super().__init__(stream, descriptions, verbosity)
+        self.verbosity = verbosity  # Store verbosity as instance variable
         self.success_count = 0
         self.start_time = None
         
