@@ -64,13 +64,7 @@ def send_discord_notification(message, flow=None, data=None):
                 condition_data = {}
             
             # Evaluate the condition
-            config = get_config()
-            user_variables = config.get('user_variables', {})
-            
-            # Pre-process condition to support {var:variable} syntax
-            processed_condition = format_message_template(condition, condition_data, user_variables)
-            
-            if not evaluate_condition(processed_condition, condition_data, user_variables):
+            if not evaluate_condition(condition, condition_data):
                 log_notification(f"⏭️ Condition not met for flow '{flow.get('name', 'unnamed')}': {condition}")
                 return True  # Return True to indicate "handled" but not sent
     
@@ -117,12 +111,6 @@ def send_discord_notification(message, flow=None, data=None):
             webhook_name = config.get('default_webhook_name', 'Notification Bot')
         if not webhook_avatar:
             webhook_avatar = config.get('default_webhook_avatar', '')
-        
-        # Apply variable formatting to webhook name and avatar
-        if webhook_name:
-            webhook_name = format_message_template(webhook_name, message_data, user_variables)
-        if webhook_avatar:
-            webhook_avatar = format_message_template(webhook_avatar, message_data, user_variables)
         
         payload = {
             "username": webhook_name,
@@ -238,13 +226,8 @@ def check_endpoints():
                     current_value = None
                     if flow.get('endpoint'):
                         try:
-                            # Process endpoint URL with variables
-                            config = get_config()
-                            user_variables = config.get('user_variables', {})
-                            endpoint_url = format_message_template(flow['endpoint'], {}, user_variables)
-                            
                             api_data = make_api_request(
-                                endpoint_url,
+                                flow['endpoint'],
                                 flow.get('api_headers'),
                                 flow.get('api_request_body')
                             )
