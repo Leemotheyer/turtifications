@@ -7,7 +7,7 @@ FLOW_TEMPLATES = {
         "name": "Sonarr Download Notification",
         "description": "Notify when Sonarr downloads a new episode",
         "category": "Media",
-        "trigger_type": "on_incoming",
+        "trigger_type": "webhook",
         "webhook_name": "Sonarr",
         "webhook_avatar": "https://raw.githubusercontent.com/Sonarr/Sonarr/develop/Logo/400.png",
         "message_template": "🎬 **{series['title']}** - {episode['title']}\n\n📺 Episode: {episode['episodeNumber']}x{episode['seasonNumber']:02d}\n📁 Quality: {episode['quality']}\n💾 Size: {episode['size']}MB\n⏰ Downloaded: {time}",
@@ -18,15 +18,14 @@ FLOW_TEMPLATES = {
             "color": "#00ff00",
             "timestamp": True,
             "thumbnail_url": "{series['images']['0']['remoteUrl']}"
-        },
-        "accept_webhooks": True
+        }
     },
     
     "radarr_download": {
         "name": "Radarr Download Notification",
         "description": "Notify when Radarr downloads a new movie",
         "category": "Media",
-        "trigger_type": "on_incoming",
+        "trigger_type": "webhook",
         "webhook_name": "Radarr",
         "webhook_avatar": "https://raw.githubusercontent.com/Radarr/Radarr/develop/Logo/400.png",
         "message_template": "🎬 **{movie['title']}** ({movie['year']})\n\n📁 Quality: {movie['quality']}\n💾 Size: {movie['size']}MB\n⏰ Downloaded: {time}",
@@ -37,15 +36,14 @@ FLOW_TEMPLATES = {
             "color": "#00ff00",
             "timestamp": True,
             "thumbnail_url": "{movie['images']['0']['remoteUrl']}"
-        },
-        "accept_webhooks": True
+        }
     },
     
     "kapowarr_download": {
         "name": "Kapowarr Download Notification",
         "description": "Notify when Kapowarr downloads a new comic",
         "category": "Media",
-        "trigger_type": "on_incoming",
+        "trigger_type": "webhook",
         "webhook_name": "Kapowarr",
         "webhook_avatar": "https://img.freepik.com/free-vector/angry-man-yelling-cartoon-illustration_1308-163237.jpg",
         "message_template": "📚 **{result['0']['web_title']}**\n\n📖 From: {result['0']['web_link']}\n📥 Source: {result['0']['source']}\n⏰ Downloaded: {result['0']['downloaded_at']}",
@@ -55,8 +53,7 @@ FLOW_TEMPLATES = {
             "description": "**{result['0']['web_title']}**\n\n📖 From: {result['0']['web_link']}\n📥 Source: {result['0']['source']}",
             "color": "#00ff00",
             "timestamp": True
-        },
-        "accept_webhooks": True
+        }
     },
     
     "system_monitor": {

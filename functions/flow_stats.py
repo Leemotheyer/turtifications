@@ -267,11 +267,7 @@ def duplicate_flow(flow_name):
             new_flow.pop('last_run', None)
             new_flow.pop('last_data', None)
 
-            # Explicitly preserve webhook receiver fields if present
-            if 'accept_webhooks' in flow:
-                new_flow['accept_webhooks'] = flow['accept_webhooks']
-            if 'require_webhook_secret' in flow:
-                new_flow['require_webhook_secret'] = flow['require_webhook_secret']
+            # Preserve webhook secret if present
             if 'webhook_secret' in flow:
                 new_flow['webhook_secret'] = flow['webhook_secret']
 

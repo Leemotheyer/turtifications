@@ -187,7 +187,7 @@ def init_routes(app):
                     return redirect(url_for('notification_builder'))
                 
                 trigger_type = request.form.get('trigger_type', 'on_change')
-                accept_webhooks = request.form.get('accept_webhooks', 'false') == 'true'
+                accept_webhooks = trigger_type == 'webhook'
                 require_webhook_secret = request.form.get('require_webhook_secret', 'false') == 'true'
                 
                 # Validate trigger-specific requirements
@@ -201,6 +201,9 @@ def init_routes(app):
                 elif trigger_type == 'timer' and not request.form.get('interval'):
                     flash('Interval is required for timer triggers', 'error')
                     return redirect(url_for('notification_builder'))
+                elif trigger_type == 'webhook':
+                    # No additional validation needed for webhook triggers
+                    pass
 
                 # Parse embed configuration
                 embed_config = {}
@@ -402,7 +405,7 @@ def init_routes(app):
                 'endpoint': request.form.get('endpoint', ''),
                 'field': request.form.get('field', ''),
                 'interval': int(request.form.get('interval', 5)) if request.form.get('trigger_type') == 'timer' else None,
-                'accept_webhooks': request.form.get('accept_webhooks', 'false') == 'true',
+                'accept_webhooks': request.form.get('trigger_type') == 'webhook',
                 'embed_config': embed_config,
                 'condition_enabled': request.form.get('condition_enabled', 'false') == 'true',
                 'condition': request.form.get('condition', ''),
@@ -491,7 +494,7 @@ def init_routes(app):
         # Find the flow
         flow = next((f for f in config.get('notification_flows', []) 
                    if f['name'] == flow_name and f['active'] and 
-                   (f.get('accept_webhooks') or f['trigger_type'] == 'on_incoming')), None)
+                   f['trigger_type'] == 'webhook'), None)
         
         if not flow:
             abort(404, description="Flow not found, inactive, or not accepting webhooks")
