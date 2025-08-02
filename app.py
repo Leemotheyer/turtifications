@@ -3,6 +3,7 @@ import secrets
 import os
 from threading import Thread
 from functions.config import initialize_files
+from functions.version import initialize_version
 from endpoints.routes import init_routes
 from endpoints.api import init_api_routes
 from functions.notifications import check_endpoints
@@ -14,13 +15,14 @@ app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 # Initialize configuration files
 initialize_files()
 
+# Initialize version system
+initialize_version()
+
 # Initialize routes
 init_routes(app)
 
 # Initialize API routes
 init_api_routes(app)
-
-
 
 if __name__ == '__main__':
     # Use environment variable for debug mode, default to False for production

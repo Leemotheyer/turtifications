@@ -10,9 +10,18 @@ from functions.notifications import send_discord_notification, make_api_request
 from functions.embed_utils import validate_embed_config, create_discord_embed
 from functions.flow_templates import FLOW_TEMPLATES, get_template_categories, get_templates_by_category, get_template
 from functions.flow_stats import get_flow_statistics, get_flow_success_rate, get_recent_flow_activity, export_flow_config, import_flow_config, duplicate_flow
+from functions.version import get_version, get_version_info
 
 def init_routes(app):
     """Initialize all Flask routes"""
+    
+    @app.context_processor
+    def inject_version():
+        """Inject version information into all templates"""
+        return {
+            'app_version': get_version(),
+            'version_info': get_version_info()
+        }
     
     @app.template_filter('datetimeformat')
     def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):

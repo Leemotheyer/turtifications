@@ -8,6 +8,7 @@ from functions.config import get_config, get_logs, get_log_stats
 from functions.flow_stats import get_flow_statistics, get_recent_flow_activity
 from functions.notifications import send_discord_notification
 from functions.utils import get_notification_logs
+from functions.version import get_version, get_version_info
 import json
 import sys
 
@@ -26,7 +27,7 @@ def init_api_routes(app):
             'timestamp': datetime.now().isoformat(),
             'total_flows': len(flows),
             'active_flows': len(active_flows),
-            'version': '1.0.0'
+            'version': get_version()
         })
     
     @app.route('/api/flows')

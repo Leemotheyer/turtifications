@@ -5,6 +5,11 @@ import operator
 from datetime import datetime
 from functions.config import get_logs, save_logs, get_config, save_config
 
+def get_version():
+    """Get the current version of the app"""
+    with open('data/version.txt', 'r') as f:
+        return f.read().strip()
+
 def get_nested_value(data_dict, path):
     """Get a nested value from a dictionary using dot notation"""
     if not data_dict or not path:
