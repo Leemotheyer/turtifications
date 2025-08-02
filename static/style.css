@@ -439,183 +439,7 @@ button:active {
     color: white;
 }
 
-/* API Documentation styles */
-.api-docs-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-}
 
-.api-header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding: 2rem;
-    background: var(--bg-card);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-}
-
-.api-header h1 {
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-}
-
-.api-status {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.api-status code {
-    background: var(--bg-primary);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    color: var(--accent);
-}
-
-.api-endpoints {
-    margin-bottom: 3rem;
-}
-
-.endpoint-group {
-    margin-bottom: 2rem;
-}
-
-.endpoint-group h3 {
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--accent);
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.endpoint {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.endpoint-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.method {
-    padding: 0.25rem 0.75rem;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-}
-
-.method.get {
-    background: #10b981;
-    color: white;
-}
-
-.method.post {
-    background: #3b82f6;
-    color: white;
-}
-
-.endpoint-header code {
-    background: var(--bg-primary);
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    color: var(--accent);
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-}
-
-.endpoint p {
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-}
-
-.example {
-    margin-top: 1rem;
-}
-
-.example pre {
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 1rem;
-    overflow-x: auto;
-    font-size: 0.875rem;
-}
-
-.example code {
-    color: var(--text-primary);
-    font-family: 'Courier New', monospace;
-}
-
-.api-usage {
-    margin-bottom: 3rem;
-}
-
-.usage-example {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.usage-example h3 {
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-}
-
-.code-block {
-    margin-bottom: 1.5rem;
-}
-
-.code-block strong {
-    color: var(--text-primary);
-    display: block;
-    margin-bottom: 0.5rem;
-}
-
-.code-block pre {
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 1rem;
-    overflow-x: auto;
-    font-size: 0.875rem;
-}
-
-.code-block code {
-    color: var(--text-primary);
-    font-family: 'Courier New', monospace;
-}
-
-.api-notes {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.5rem;
-}
-
-.api-notes h2 {
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-}
-
-.api-notes ul {
-    color: var(--text-secondary);
-    line-height: 1.6;
-}
-
-.api-notes li {
-    margin-bottom: 0.5rem;
-}
 
 /* Modal styles */
 .modal {
@@ -2128,6 +1952,80 @@ input[type="color"] {
 }
 
 .badge-webhook {
-    background-color: #fff3e0;
-    color: #f57c00;
+    background: var(--accent-secondary);
+}
+
+/* Footer styles */
+footer {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 1rem 2rem;
+    margin-top: auto;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+}
+
+.github-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.github-link:hover {
+    color: var(--accent-primary);
+}
+
+.github-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+}
+
+.version {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Ensure footer stays at bottom */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+}
+
+/* Mobile responsive footer */
+@media (max-width: 768px) {
+    footer {
+        padding: 1rem;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
 }

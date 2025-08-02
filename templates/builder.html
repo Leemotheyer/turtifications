@@ -30,10 +30,6 @@
                             <input type="url" id="webhook_url" name="webhook_url" 
                                    value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
                                    placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
-                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
-                                   value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
-                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
-                            <small>Leave empty to use the default: {{ config.discord_webhook if config.discord_webhook else 'None configured' }}</small>
                         </div>
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>
@@ -68,7 +64,7 @@
                             <input type="url" id="endpoint" name="endpoint" 
                                    value="{{ editing_flow.endpoint if editing_flow else '' }}"
                                    placeholder="https://api.example.com/data">
-                            <small>Optional for timer triggers, required for change detection. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
+                            <small>Optional for timer triggers, required for change detection</small>
                             <label for="field">Field to Use:</label>
                             <input type="text" id="field" name="field" 
                                    value="{{ editing_flow.field if editing_flow else '' }}"
@@ -125,18 +121,12 @@
                                            {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
                                     <strong>Scheduled Monitoring</strong>
                                     <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
-                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
-                                    <strong>Scheduled Monitoring</strong>
-                                    <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="on_change"
                                            {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
                                     <strong>Change Detection</strong>
-                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
-                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
-                                    <strong>Change Detection</strong>
-                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small>
+                                    <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small> 
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="webhook"
@@ -211,8 +201,6 @@
                                        {% if editing_flow and editing_flow.condition_enabled %}checked{% endif %}> 
                                 Enable Conditional Notifications
                             </label>
-                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
-                            <small>Add extra conditions beyond the trigger type (e.g., only send if value > 100)</small>
                         </div>
                         <div id="condition-config" style="display: none;">
                             <div class="form-group">
@@ -221,7 +209,7 @@
                                        value="{{ editing_flow.condition if editing_flow else '' }}"
                                        placeholder="value > 100 and status == 'active'">
                                 <small>
-                                    <strong>Available variables:</strong> value, old_value, data, time, any API data fields, and user variables via {var:variable_name}
+                                    <strong>Available variables:</strong> value, old_value, data, time, and any API data fields
                                     <br>
                                     <strong>Examples:</strong>
                                     <br>
@@ -236,8 +224,6 @@
                                     <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
                                     • <code>value > old_value</code> - Only if value increased (for scheduled monitoring)
-                                    <br>
-                                    • <code>{var:threshold} < value</code> - Use user variables in conditions
                                     <br>
                                     <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
@@ -254,14 +240,12 @@
                             <input type="text" id="webhook_name" name="webhook_name" 
                                    value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
                                    placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
                         </div>
                         <div class="form-group">
                             <label for="webhook_avatar">Webhook Avatar URL:</label>
                             <input type="url" id="webhook_avatar" name="webhook_avatar" 
                                    value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
                                    placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
-                            <small>Leave empty to use the default: {{ config.default_webhook_avatar if config.default_webhook_avatar else 'None' }}. Supports template variables like {var:variable_name}, {value}, {time}, etc.</small>
                         </div>
                         <div class="form-group">
                             <label for="message_template">Message Template:</label>
@@ -290,13 +274,9 @@
                                 <br>
                                 • [{price} * {quantity}] total cost
                                 <br>
-                                • [{var:tax_rate} * {value}] with user variables
-                                <br>
                                 • [{value} / 100] percentage
                                 <br>
                                 Supports: +, -, *, /, %, ** (power)
-                                <br>
-                                <strong>📊 User Variables:</strong> Numeric strings (like "10.5") are automatically converted to numbers in calculations
                                 <br><br>
                                 <strong>💡 Tip:</strong> The "Send Test" and "Preview" buttons will use real data from your API endpoint if provided!
                                 <br>
@@ -325,7 +305,6 @@
                                 <label for="embed_description">Embed Description:</label>
                                 <textarea id="embed_description" name="embed_description" rows="3"
                                           placeholder="Main message content">{{ editing_flow.embed_config.description if editing_flow and editing_flow.embed_config else '' }}</textarea>
-                                <small>Supports the same variables and calculations as message template</small>
                                 <small>Supports the same variables and calculations as message template</small>
                             </div>
                             
@@ -406,7 +385,8 @@
                                 <small>Large image at the bottom of the embed</small>
                             </div>
                             
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, {data}, and {var:your_variable} work in all embed fields! Calculations like [{value} - {old_value}] and [{var:price} * {quantity}] also work!</small>
+                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
+                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
                         </div>
                     </section>
                     

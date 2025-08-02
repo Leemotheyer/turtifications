@@ -1,6 +1,7 @@
 # Configuration and data files
 *.json
-data/
+data/*
+!data/version.txt
 
 # Python
 __pycache__/
