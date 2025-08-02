@@ -1952,6 +1952,80 @@ input[type="color"] {
 }
 
 .badge-webhook {
-    background-color: #fff3e0;
-    color: #f57c00;
+    background: var(--accent-secondary);
+}
+
+/* Footer styles */
+footer {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 1rem 2rem;
+    margin-top: auto;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+}
+
+.github-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.github-link:hover {
+    color: var(--accent-primary);
+}
+
+.github-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+}
+
+.version {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Ensure footer stays at bottom */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+}
+
+/* Mobile responsive footer */
+@media (max-width: 768px) {
+    footer {
+        padding: 1rem;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
 }
