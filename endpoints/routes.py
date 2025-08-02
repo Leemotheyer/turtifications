@@ -836,7 +836,3 @@ def init_routes(app):
             'count': len(filtered_flows)
         })
 
-    @app.route('/api/docs')
-    def api_documentation():
-        """Show API documentation page"""
-        return render_template('api_docs.html')

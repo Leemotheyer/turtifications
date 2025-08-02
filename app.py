@@ -20,6 +20,8 @@ init_routes(app)
 # Initialize API routes
 init_api_routes(app)
 
+
+
 if __name__ == '__main__':
     # Use environment variable for debug mode, default to False for production
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
