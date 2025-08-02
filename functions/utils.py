@@ -477,7 +477,19 @@ def evaluate_condition(condition, data):
         # Use the top-level get_nested_value function
         
         # Create safe variables context
-        safe_vars = {
+        # Start with user variables and data fields
+        safe_vars = {}
+        
+        # Add user variables first
+        for var_name, var_value in user_variables.items():
+            safe_vars[var_name] = var_value
+        
+        # Add all data fields to the safe variables
+        if isinstance(data, dict):
+            safe_vars.update(data)
+        
+        # Define built-in variables that cannot be overwritten
+        builtin_vars = {
             'value': data.get('value'),
             'old_value': data.get('old_value'),
             'data': data,
