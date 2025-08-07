@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f0f23">
     <title>turtification</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,20 +12,24 @@
 </head>
 <body>
     <header>
-        <h1>turtifications</h1>
-        <nav>
-            <a href="{{ url_for('index') }}">Home</a>
-            <a href="{{ url_for('notification_builder') }}">Builder</a>
-            <a href="{{ url_for('show_templates') }}">Templates</a>
-            <a href="{{ url_for('show_flow_stats') }}">Statistics</a>
-
-            <a href="{{ url_for('configure') }}">Configure</a>
-            <a href="{{ url_for('show_logs') }}">Logs</a>
-        </nav>
+        <div class="header-content">
+            <h1>turtifications</h1>
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle">☰</button>
+            <nav id="main-nav">
+                <a href="{{ url_for('index') }}">Home</a>
+                <a href="{{ url_for('notification_builder') }}">Builder</a>
+                <a href="{{ url_for('show_templates') }}">Templates</a>
+                <a href="{{ url_for('show_flow_stats') }}">Statistics</a>
+                <a href="{{ url_for('configure') }}">Configure</a>
+                <a href="{{ url_for('show_logs') }}">Logs</a>
+            </nav>
+        </div>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
+    
+    <div id="toast-container"></div>
     
     <footer>
         <div class="footer-content">
@@ -55,6 +59,36 @@
             toast.remove();
         }, 3000);
     };
+    
+    // Mobile menu toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const mainNav = document.getElementById('main-nav');
+        
+        if (mobileMenuToggle && mainNav) {
+            mobileMenuToggle.addEventListener('click', function() {
+                mainNav.classList.toggle('mobile-nav-open');
+                this.textContent = mainNav.classList.contains('mobile-nav-open') ? '✕' : '☰';
+            });
+            
+            // Close mobile menu when clicking on a link
+            const navLinks = mainNav.querySelectorAll('a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    mainNav.classList.remove('mobile-nav-open');
+                    mobileMenuToggle.textContent = '☰';
+                });
+            });
+            
+            // Close mobile menu when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!event.target.closest('header')) {
+                    mainNav.classList.remove('mobile-nav-open');
+                    mobileMenuToggle.textContent = '☰';
+                }
+            });
+        }
+    });
     </script>
     {% block scripts %}{% endblock %}
 </body>
