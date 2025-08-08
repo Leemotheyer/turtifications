@@ -116,3 +116,23 @@ def get_image_filename_from_url(image_url):
         
     except Exception:
         return f"image_{uuid.uuid4().hex[:8]}.png"
+
+def get_mime_type_from_extension(file_path):
+    """
+    Get the appropriate MIME type based on file extension.
+    """
+    if not file_path:
+        return 'image/png'
+    
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    mime_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp'
+    }
+    
+    return mime_types.get(ext, 'image/png')  # Default to PNG if unknown

@@ -18,7 +18,8 @@ from functions.image_utils import (
     download_image_to_temp, 
     cleanup_temp_file, 
     cleanup_temp_files, 
-    get_image_filename_from_url
+    get_image_filename_from_url,
+    get_mime_type_from_extension
 )
 from functions.utils import format_message_template
 
@@ -159,6 +160,29 @@ class TestImageUtils(unittest.TestCase):
         # Verify result is None on failure
         self.assertIsNone(result)
         mock_log.assert_called()
+    
+    def test_get_mime_type_from_extension(self):
+        """Test MIME type detection from file extensions"""
+        # Test various image formats
+        test_cases = [
+            ('/path/to/image.png', 'image/png'),
+            ('/path/to/image.jpg', 'image/jpeg'),
+            ('/path/to/image.jpeg', 'image/jpeg'),
+            ('/path/to/image.gif', 'image/gif'),
+            ('/path/to/image.webp', 'image/webp'),
+            ('/path/to/image.bmp', 'image/bmp'),
+            ('/path/to/image.PNG', 'image/png'),  # Test case insensitive
+            ('/path/to/image.JPG', 'image/jpeg'),  # Test case insensitive
+            ('/path/to/image.unknown', 'image/png'),  # Test unknown extension
+            ('/path/to/noextension', 'image/png'),  # Test no extension
+            ('', 'image/png'),  # Test empty path
+            (None, 'image/png'),  # Test None path
+        ]
+        
+        for file_path, expected_mime in test_cases:
+            with self.subTest(file_path=file_path):
+                result = get_mime_type_from_extension(file_path)
+                self.assertEqual(result, expected_mime)
 
 
 class TestImageTemplateProcessing(unittest.TestCase):

@@ -5,7 +5,7 @@ from datetime import datetime
 from functions.config import get_config, save_config
 from functions.utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
 from functions.embed_utils import create_discord_embed
-from functions.image_utils import download_image_to_temp, cleanup_temp_files, get_image_filename_from_url
+from functions.image_utils import download_image_to_temp, cleanup_temp_files, get_image_filename_from_url, get_mime_type_from_extension
 
 def extract_field_value(data, field_path):
     """Extract field value using bracket notation (e.g., result['0']['web_title'])"""
@@ -159,8 +159,9 @@ def send_discord_notification(message, flow=None, data=None):
                 files = {}
                 for i, attachment in enumerate(image_attachments):
                     file_key = f'file{i}'
+                    mime_type = get_mime_type_from_extension(attachment['file_path'])
                     with open(attachment['file_path'], 'rb') as f:
-                        files[file_key] = (attachment['filename'], f.read(), 'image/png')
+                        files[file_key] = (attachment['filename'], f.read(), mime_type)
                 
                 # For multipart requests, payload needs to be sent as 'payload_json'
                 multipart_data = {

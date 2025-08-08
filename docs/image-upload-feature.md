@@ -97,6 +97,7 @@ Images work alongside Discord embeds:
 - **Network Timeouts**: 10-second timeout for downloads
 - **Cleanup Failures**: Logged but don't affect functionality
 - **Resource Management**: File descriptors are properly closed even on exceptions to prevent resource leaks
+- **MIME Type Detection**: Correct content-type headers based on file extension (PNG, JPEG, GIF, WebP, BMP)
 
 ### File Management
 
