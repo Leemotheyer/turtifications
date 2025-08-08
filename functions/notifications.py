@@ -1,10 +1,13 @@
 import requests
 import json
 import time
+import os
 from datetime import datetime
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 from functions.config import get_config, save_config
 from functions.utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
 from functions.embed_utils import create_discord_embed
+from functions.image_utils import download_image, cleanup_temp_images
 
 def extract_field_value(data, field_path):
     """Extract field value using bracket notation (e.g., result['0']['web_title'])"""
@@ -112,6 +115,22 @@ def send_discord_notification(message, flow=None, data=None):
         if not webhook_avatar:
             webhook_avatar = config.get('default_webhook_avatar', '')
         
+        # Handle image attachments if present in embed
+        files_to_upload = []
+        temp_file_paths = []
+        
+        if embed and embed.get('_local_images'):
+            local_images = embed.pop('_local_images')  # Remove from embed payload
+            
+            for attachment_name, image_url in local_images.items():
+                file_path, content_type, success = download_image(image_url)
+                if success and file_path:
+                    files_to_upload.append((attachment_name, file_path, content_type))
+                    temp_file_paths.append(file_path)
+                    log_notification(f"Prepared image attachment: {attachment_name} from {image_url}")
+                else:
+                    log_notification(f"Failed to download image for {attachment_name}: {image_url}")
+        
         payload = {
             "username": webhook_name,
         }
@@ -127,7 +146,37 @@ def send_discord_notification(message, flow=None, data=None):
         if webhook_avatar:
             payload["avatar_url"] = webhook_avatar
         
-        response = requests.post(webhook_url, json=payload, timeout=10)
+        # Send request with files if we have attachments
+        if files_to_upload:
+            # Use multipart form data for file uploads
+            multipart_data = {
+                'payload_json': json.dumps(payload)
+            }
+            
+            # Add files to multipart data
+            for i, (attachment_name, file_path, content_type) in enumerate(files_to_upload):
+                filename = f"{attachment_name}.png"
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                multipart_data[f'files[{i}]'] = (filename, file_content, content_type)
+            
+            encoder = MultipartEncoder(fields=multipart_data)
+            headers = {'Content-Type': encoder.content_type}
+            
+            log_notification(f"Sending Discord notification with {len(files_to_upload)} image attachments")
+            response = requests.post(webhook_url, data=encoder, headers=headers, timeout=30)
+            
+            # Clean up temporary files
+            for file_path in temp_file_paths:
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                except Exception as cleanup_error:
+                    log_notification(f"Failed to cleanup temp file {file_path}: {str(cleanup_error)}")
+        else:
+            # Standard JSON request without files
+            response = requests.post(webhook_url, json=payload, timeout=10)
+        
         success = response.status_code == 204
         
         if success:
@@ -206,6 +255,7 @@ def check_endpoints():
     max_consecutive_errors = 5
     consecutive_errors = 0
     base_retry_delay = 1  # Start with 1 second delay
+    last_cleanup_time = 0  # Track when we last cleaned up temp files
     
     while True:
         try:
@@ -299,6 +349,12 @@ def check_endpoints():
             
             # Reset error counter on successful iteration
             consecutive_errors = 0
+            
+            # Cleanup old temporary images periodically (every hour)
+            current_time = time.time()
+            if current_time - last_cleanup_time > 3600:  # 1 hour
+                cleanup_temp_images(max_age_hours=24)
+                last_cleanup_time = current_time
             
             time.sleep(check_interval)  # Use configurable check interval
             

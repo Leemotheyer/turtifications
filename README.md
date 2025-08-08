@@ -9,6 +9,7 @@ A powerful Discord notification system built with Flask that monitors APIs, dete
 
 - **Multiple Triggers**: Timer-based, change detection, and webhook triggers
 - **Rich Discord Notifications**: Message templates with variable substitution and Discord embeds
+- **Local Image Upload**: Automatically upload images from local services as Discord attachments
 - **Flow Templates**: Pre-built templates for Sonarr, Radarr, Kapowarr, and more
 - **Real-time Preview**: Preview notifications with real API data
 - **Statistics & Monitoring**: Track usage, success rates, and activity history
@@ -31,6 +32,19 @@ python app.py
 ```
 
 Visit `http://localhost:5000` and configure your Discord webhook in the "Configure" page.
+
+## 🖼️ Local Image Upload
+
+The system automatically detects when embed images point to local services (localhost, private IPs, internal hostnames) and uploads them as Discord attachments instead of broken links. This works transparently with:
+
+- Main embed images (`image_url`)
+- Thumbnails (`thumbnail_url`) 
+- Footer icons (`footer_icon`)
+- Author icons (`author_icon`)
+
+No configuration required - just use your local image URLs in embed configurations and they'll be automatically uploaded!
+
+See the [Local Images Guide](docs/guides/local-images.md) for detailed documentation.
 
 ## 📖 Usage
 

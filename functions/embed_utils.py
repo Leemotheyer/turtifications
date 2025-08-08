@@ -2,6 +2,7 @@ import json
 import re
 from datetime import datetime
 from functions.utils import format_message_template
+from functions.image_utils import extract_image_urls_from_embed, download_image, is_local_service_url
 
 def create_discord_embed(embed_config, data=None, user_variables=None):
     """Create a Discord embed from configuration and data, with user variable support"""
@@ -9,6 +10,9 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
         return None
     user_variables = user_variables or {}
     embed = {}
+    
+    # Track which images need to be converted to attachment references
+    attachment_mapping = {}
     
     # Title
     if embed_config.get('title'):
@@ -41,7 +45,12 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
         if embed_config.get('footer_text'):
             footer['text'] = format_message_template(embed_config['footer_text'], data or {}, user_variables)
         if embed_config.get('footer_icon'):
-            footer['icon_url'] = format_message_template(embed_config['footer_icon'], data or {}, user_variables)
+            footer_icon_url = format_message_template(embed_config['footer_icon'], data or {}, user_variables)
+            if is_local_service_url(footer_icon_url):
+                attachment_mapping['footer_icon'] = footer_icon_url
+                footer['icon_url'] = 'attachment://footer_icon.png'
+            else:
+                footer['icon_url'] = footer_icon_url
         embed['footer'] = footer
     
     # Author
@@ -50,22 +59,35 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
         if embed_config.get('author_name'):
             author['name'] = format_message_template(embed_config['author_name'], data or {}, user_variables)
         if embed_config.get('author_icon'):
-            author['icon_url'] = format_message_template(embed_config['author_icon'], data or {}, user_variables)
+            author_icon_url = format_message_template(embed_config['author_icon'], data or {}, user_variables)
+            if is_local_service_url(author_icon_url):
+                attachment_mapping['author_icon'] = author_icon_url
+                author['icon_url'] = 'attachment://author_icon.png'
+            else:
+                author['icon_url'] = author_icon_url
         if embed_config.get('author_url'):
             author['url'] = format_message_template(embed_config['author_url'], data or {}, user_variables)
         embed['author'] = author
     
     # Thumbnail
     if embed_config.get('thumbnail_url'):
-        embed['thumbnail'] = {
-            'url': format_message_template(embed_config['thumbnail_url'], data or {}, user_variables)
-        }
+        thumbnail_url = format_message_template(embed_config['thumbnail_url'], data or {}, user_variables)
+        if is_local_service_url(thumbnail_url):
+            # Mark for attachment conversion
+            attachment_mapping['thumbnail'] = thumbnail_url
+            embed['thumbnail'] = {'url': 'attachment://embed_thumbnail.png'}
+        else:
+            embed['thumbnail'] = {'url': thumbnail_url}
     
     # Image
     if embed_config.get('image_url'):
-        embed['image'] = {
-            'url': format_message_template(embed_config['image_url'], data or {}, user_variables)
-        }
+        image_url = format_message_template(embed_config['image_url'], data or {}, user_variables)
+        if is_local_service_url(image_url):
+            # Mark for attachment conversion
+            attachment_mapping['image'] = image_url
+            embed['image'] = {'url': 'attachment://embed_image.png'}
+        else:
+            embed['image'] = {'url': image_url}
     
     # Fields
     fields = []
@@ -86,6 +108,10 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
     
     if fields:
         embed['fields'] = fields
+    
+    # Add attachment mapping to embed for later processing
+    if attachment_mapping:
+        embed['_local_images'] = attachment_mapping
     
     return embed
 
