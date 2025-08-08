@@ -39,7 +39,11 @@ def get_config():
     return config
 
 def save_config(config):
-    """Save configuration to file with proper serialization"""
+    """Save configuration to file with proper serialization
+    
+    Additionally preserves monotonic counters that may be updated concurrently
+    by merging with the on-disk value before writing (e.g., 'total_notifications_sent').
+    """
     # Create a copy of config to avoid modifying the original
     config_copy = config.copy()
     
@@ -47,6 +51,27 @@ def save_config(config):
     for flow in config_copy.get('notification_flows', []):
         if 'last_data' in flow and not isinstance(flow['last_data'], str):
             flow['last_data'] = json.dumps(flow['last_data'])
+    
+    # Preserve monotonic counters from existing on-disk config to avoid clobbering
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            existing_cfg = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        existing_cfg = {}
+    
+    # Ensure we do not decrease total_notifications_sent due to concurrent saves
+    existing_total = existing_cfg.get('total_notifications_sent', 0)
+    incoming_total = config_copy.get('total_notifications_sent', existing_total)
+    
+    # Also ensure it's at least the count of current notification log entries
+    try:
+        with open('data/sent_notifications.json', 'r') as f:
+            sent_logs = json.load(f)
+            current_log_total = len(sent_logs) if isinstance(sent_logs, list) else 0
+    except (FileNotFoundError, json.JSONDecodeError):
+        current_log_total = 0
+    
+    config_copy['total_notifications_sent'] = max(existing_total, incoming_total, current_log_total)
     
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config_copy, f, indent=4)
