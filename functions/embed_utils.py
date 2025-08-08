@@ -1,5 +1,7 @@
 import json
 import re
+import ast
+import operator
 from datetime import datetime
 from functions.utils import format_message_template
 
@@ -22,13 +24,13 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
     if embed_config.get('url'):
         embed['url'] = format_message_template(embed_config['url'], data or {}, user_variables)
     
-    # Color (convert hex to integer)
-    if embed_config.get('color'):
-        color = embed_config['color'].lstrip('#')
+    # Color handling (static / if / gradient)
+    computed_color_hex = compute_embed_color(embed_config, data or {}, user_variables)
+    if computed_color_hex:
+        color = computed_color_hex.lstrip('#')
         try:
             embed['color'] = int(color, 16)
         except ValueError:
-            # Default to a nice blue if color is invalid
             embed['color'] = 0x3498db
     
     # Timestamp
@@ -104,6 +106,202 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
         embed['fields'] = fields
     
     return embed
+
+def compute_embed_color(embed_config, data, user_variables):
+    """Compute embed color based on color_mode.
+    Returns a hex string like '#RRGGBB' or None.
+    Modes:
+    - static: use embed_config.color
+    - if: evaluate rules on monitored value (variable 'x' in conditions), else white
+    - gradient: interpolate between two colors based on monitored numeric value
+    """
+    try:
+        mode = embed_config.get('color_mode', 'static')
+        if mode == 'static':
+            return embed_config.get('color')
+        # Resolve monitored value (supports template variables and calculations)
+        monitor_expr = embed_config.get('color_monitor', '')
+        monitored_value = None
+        if monitor_expr:
+            # First expand variables and calculations
+            expanded = format_message_template(str(monitor_expr), data, user_variables)
+            # Try to parse numeric if possible
+            try:
+                monitored_value = float(expanded)
+            except Exception:
+                monitored_value = expanded
+        if mode == 'if':
+            rules = embed_config.get('color_rules', []) or []
+            # Provide 'x' as the monitored value in condition context
+            condition_ctx = dict(data or {})
+            condition_ctx['x'] = monitored_value
+            for rule in rules:
+                test = (rule.get('test') or '').strip()
+                color = rule.get('color') or '#ffffff'
+                if not test:
+                    continue
+                try:
+                    if safe_eval_condition_local(test, condition_ctx):
+                        return color
+                except Exception:
+                    continue
+            return '#ffffff'
+        if mode == 'gradient':
+            gradient = embed_config.get('gradient') or {}
+            start_val_expr = gradient.get('start_value', '')
+            end_val_expr = gradient.get('end_value', '')
+            start_color = gradient.get('start_color', '#00ff00')
+            end_color = gradient.get('end_color', '#ff0000')
+            # Resolve values
+            start_val = format_message_template(str(start_val_expr), data, user_variables)
+            end_val = format_message_template(str(end_val_expr), data, user_variables)
+            try:
+                start_num = float(start_val)
+                end_num = float(end_val)
+            except Exception:
+                return start_color  # fallback
+            # Resolve monitored numeric value
+            try:
+                x = float(monitored_value)
+            except Exception:
+                return start_color
+            # Clamp outside range to nearest end color
+            if end_num == start_num:
+                return start_color
+            if x <= start_num:
+                return start_color
+            if x >= end_num:
+                return end_color
+            # Interpolate
+            t = (x - start_num) / (end_num - start_num)
+            return interpolate_hex_color(start_color, end_color, t)
+        return embed_config.get('color')
+    except Exception:
+        return embed_config.get('color') or '#3498db'
+
+def interpolate_hex_color(start_hex, end_hex, t):
+    """Linear interpolate between two hex colors, t in [0,1]"""
+    s = start_hex.lstrip('#')
+    e = end_hex.lstrip('#')
+    try:
+        sr, sg, sb = int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+        er, eg, eb = int(e[0:2], 16), int(e[2:4], 16), int(e[4:6], 16)
+    except Exception:
+        return start_hex
+    r = round(sr + (er - sr) * t)
+    g = round(sg + (eg - sg) * t)
+    b = round(sb + (eb - sb) * t)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def safe_eval_condition_local(condition, context):
+    """Safely evaluate a boolean condition with access to variables in context.
+    Supports numbers, strings, dict/list subscripts, comparisons, and/or/not.
+    """
+    if not condition or not str(condition).strip():
+        return True
+    # Build safe variables
+    safe_vars = {}
+    if isinstance(context, dict):
+        safe_vars.update(context)
+    # Builtins
+    safe_vars.update({
+        'True': True,
+        'False': False,
+        'None': None,
+        'len': len,
+    })
+    # Allowed operators
+    safe_ops = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+        ast.FloorDiv: operator.floordiv,
+        ast.Eq: operator.eq,
+        ast.NotEq: operator.ne,
+        ast.Lt: operator.lt,
+        ast.LtE: operator.le,
+        ast.Gt: operator.gt,
+        ast.GtE: operator.ge,
+        ast.In: lambda x, y: x in y,
+        ast.NotIn: lambda x, y: x not in y,
+        ast.And: lambda x, y: x and y,
+        ast.Or: lambda x, y: x or y,
+        ast.Not: operator.not_,
+        ast.UAdd: operator.pos,
+        ast.USub: operator.neg,
+    }
+    def eval_node(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.Num):
+            return node.n
+        if isinstance(node, ast.Str):
+            return node.s
+        if isinstance(node, ast.NameConstant):
+            return node.value
+        if isinstance(node, ast.Name):
+            if node.id in safe_vars:
+                return safe_vars[node.id]
+            raise ValueError(f"Variable '{node.id}' not allowed")
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                func_name = node.func.id
+                func = safe_vars.get(func_name)
+                if callable(func):
+                    args = [eval_node(arg) for arg in node.args]
+                    return func(*args)
+            raise ValueError("Function call not allowed")
+        if isinstance(node, ast.BinOp):
+            left = eval_node(node.left)
+            right = eval_node(node.right)
+            op = safe_ops.get(type(node.op))
+            if not op:
+                raise ValueError("Operator not allowed")
+            return op(left, right)
+        if isinstance(node, ast.UnaryOp):
+            operand = eval_node(node.operand)
+            op = safe_ops.get(type(node.op))
+            if not op:
+                raise ValueError("Unary operator not allowed")
+            return op(operand)
+        if isinstance(node, ast.Compare):
+            left = eval_node(node.left)
+            result = True
+            for op, comparator in zip(node.ops, node.comparators):
+                right = eval_node(comparator)
+                op_fn = safe_ops.get(type(op))
+                if not op_fn:
+                    raise ValueError("Comparison operator not allowed")
+                if not op_fn(left, right):
+                    return False
+                left = right
+            return result
+        if isinstance(node, ast.BoolOp):
+            values = [eval_node(v) for v in node.values]
+            if isinstance(node.op, ast.And):
+                return all(values)
+            if isinstance(node.op, ast.Or):
+                return any(values)
+            raise ValueError("Boolean operator not allowed")
+        if isinstance(node, ast.Subscript):
+            obj = eval_node(node.value)
+            # slice handling for different Python versions
+            if isinstance(node.slice, ast.Index):
+                key = eval_node(node.slice.value)
+            else:
+                key = eval_node(node.slice)
+            if isinstance(obj, (dict, list)):
+                try:
+                    return obj[key]
+                except Exception:
+                    return None
+            raise ValueError("Subscript access not allowed")
+        raise ValueError(f"Unsupported expression: {type(node).__name__}")
+    tree = ast.parse(condition, mode='eval')
+    return bool(eval_node(tree.body))
 
 def parse_dynamic_fields(fields_config, data, user_variables):
     """Parse dynamic field configurations and create embed fields"""

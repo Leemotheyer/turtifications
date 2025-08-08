@@ -317,10 +317,84 @@
                             </div>
                             
                             <div class="form-group">
+                                <label>Embed Color Mode:</label>
+                                <div style="display:flex; gap:16px; align-items:center;">
+                                    <label style="display:flex; gap:6px; align-items:center;">
+                                        <input type="radio" name="embed_color_mode" value="static"
+                                               {% if not editing_flow or not editing_flow.embed_config or (editing_flow.embed_config.color_mode|default('static')) == 'static' %}checked{% endif %}>
+                                        Static
+                                    </label>
+                                    <label style="display:flex; gap:6px; align-items:center;">
+                                        <input type="radio" name="embed_color_mode" value="if"
+                                               {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color_mode == 'if' %}checked{% endif %}>
+                                        If
+                                    </label>
+                                    <label style="display:flex; gap:6px; align-items:center;">
+                                        <input type="radio" name="embed_color_mode" value="gradient"
+                                               {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color_mode == 'gradient' %}checked{% endif %}>
+                                        Gradient
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="embed-color-static" class="form-group" style="display:none;">
                                 <label for="embed_color">Embed Color:</label>
-                                <input type="color" id="embed_color" name="embed_color" 
-                                       value="{{ editing_flow.embed_config.color if editing_flow and editing_flow.embed_config else '#3498db' }}">
+                                <input type="color" id="embed_color" name="embed_color"
+                                       value="{{ editing_flow.embed_config.color if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color else '#3498db' }}">
                                 <small>Color for the embed border</small>
+                            </div>
+
+                            <div id="embed-color-if" class="form-group" style="display:none;">
+                                <label for="embed_color_monitor">Monitored Value:</label>
+                                <input type="text" id="embed_color_monitor" name="embed_color_monitor"
+                                       value="{{ editing_flow.embed_config.color_monitor if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color_monitor else '' }}"
+                                       placeholder="e.g., {result['0']} or [{value} - {old_value}]">
+                                <small>Use variables like {value}, {data}, {result['0']} or calculations in [brackets]. 'x' represents the monitored value in conditions.</small>
+                                <div id="embed-color-if-rules" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                                    {% set existing_rules = editing_flow.embed_config.color_rules if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color_rules else [] %}
+                                    {% for rule in existing_rules %}
+                                    <div class="if-rule" style="display:flex; gap:8px; align-items:center;">
+                                        <input type="text" name="embed_color_if_test[]" value="{{ rule.test }}" placeholder="e.g., x > 10 or x == 'error'" style="flex:1;">
+                                        <input type="color" name="embed_color_if_color[]" value="{{ rule.color|default('#ffffff') }}">
+                                        <button type="button" class="btn-remove-if-rule" title="Remove">−</button>
+                                    </div>
+                                    {% endfor %}
+                                    {% if existing_rules|length == 0 %}
+                                    <div class="if-rule" style="display:flex; gap:8px; align-items:center;">
+                                        <input type="text" name="embed_color_if_test[]" placeholder="e.g., x > 10" style="flex:1;">
+                                        <input type="color" name="embed_color_if_color[]" value="#ff0000">
+                                        <button type="button" class="btn-remove-if-rule" title="Remove">−</button>
+                                    </div>
+                                    <div class="if-rule" style="display:flex; gap:8px; align-items:center;">
+                                        <input type="text" name="embed_color_if_test[]" placeholder="e.g., x <= 10" style="flex:1;">
+                                        <input type="color" name="embed_color_if_color[]" value="#00ff00">
+                                        <button type="button" class="btn-remove-if-rule" title="Remove">−</button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <button type="button" id="btn-add-if-rule" style="margin-top:6px;">+ Add condition</button>
+                                <small>If none of the conditions match, white will be used.</small>
+                            </div>
+
+                            <div id="embed-color-gradient" class="form-group" style="display:none;">
+                                <label for="embed_color_monitor_gradient">Monitored Value:</label>
+                                <input type="text" id="embed_color_monitor_gradient" name="embed_color_monitor"
+                                       value="{{ editing_flow.embed_config.color_monitor if editing_flow and editing_flow.embed_config and editing_flow.embed_config.color_monitor else '' }}"
+                                       placeholder="e.g., {value} or [{price} * {quantity}]">
+                                <div style="display:grid; grid-template-columns: 1fr auto 1fr; gap:12px; align-items:end; margin-top:8px;">
+                                    <div>
+                                        <label>Start Value</label>
+                                        <input type="text" name="embed_gradient_start_value" value="{{ editing_flow.embed_config.gradient.start_value if editing_flow and editing_flow.embed_config and editing_flow.embed_config.gradient else '' }}" placeholder="e.g., 0">
+                                        <input type="color" name="embed_gradient_start_color" value="{{ editing_flow.embed_config.gradient.start_color if editing_flow and editing_flow.embed_config and editing_flow.embed_config.gradient else '#00ff00' }}">
+                                    </div>
+                                    <div style="text-align:center;">to</div>
+                                    <div>
+                                        <label>End Value</label>
+                                        <input type="text" name="embed_gradient_end_value" value="{{ editing_flow.embed_config.gradient.end_value if editing_flow and editing_flow.embed_config and editing_flow.embed_config.gradient else '' }}" placeholder="e.g., 100">
+                                        <input type="color" name="embed_gradient_end_color" value="{{ editing_flow.embed_config.gradient.end_color if editing_flow and editing_flow.embed_config and editing_flow.embed_config.gradient else '#ff0000' }}">
+                                    </div>
+                                </div>
+                                <small>Color is interpolated between the two colors based on the monitored value. Outside the range uses the nearest end color.</small>
                             </div>
                             
                             <div class="form-group">
@@ -659,6 +733,12 @@
                 if (messageTemplate) {
                     messageTemplate.required = !embedEnabledCheckbox.checked;
                 }
+                // Ensure color mode section visibility updates when toggling embed
+                if (embedEnabledCheckbox && embedEnabledCheckbox.checked) {
+                    if (typeof updateColorModeUI === 'function') {
+                        updateColorModeUI();
+                    }
+                }
             }
             
             function updateConditionVisibility() {
@@ -743,10 +823,29 @@
                 // Add embed configuration
                 formData.append('embed_enabled', document.getElementById('embed_enabled')?.checked || false);
                 if (document.getElementById('embed_enabled')?.checked) {
+                    const colorMode = document.querySelector('input[name="embed_color_mode"]:checked')?.value || 'static';
+                    formData.append('embed_color_mode', colorMode);
                     formData.append('embed_title', document.getElementById('embed_title')?.value || '');
                     formData.append('embed_description', document.getElementById('embed_description')?.value || '');
                     formData.append('embed_url', document.getElementById('embed_url')?.value || '');
-                    formData.append('embed_color', document.getElementById('embed_color')?.value || '#3498db');
+                    if (colorMode === 'static') {
+                        formData.append('embed_color', document.getElementById('embed_color')?.value || '#3498db');
+                    } else if (colorMode === 'if') {
+                        formData.append('embed_color_monitor', document.getElementById('embed_color_monitor')?.value || '');
+                        document.querySelectorAll('input[name="embed_color_if_test[]"]').forEach((input, idx) => {
+                            const colorInput = document.querySelectorAll('input[name="embed_color_if_color[]"]')[idx];
+                            if (input.value && colorInput?.value) {
+                                formData.append('embed_color_if_test[]', input.value);
+                                formData.append('embed_color_if_color[]', colorInput.value);
+                            }
+                        });
+                    } else if (colorMode === 'gradient') {
+                        formData.append('embed_color_monitor', document.getElementById('embed_color_monitor_gradient')?.value || '');
+                        formData.append('embed_gradient_start_value', document.querySelector('input[name="embed_gradient_start_value"]').value || '');
+                        formData.append('embed_gradient_start_color', document.querySelector('input[name="embed_gradient_start_color"]').value || '#00ff00');
+                        formData.append('embed_gradient_end_value', document.querySelector('input[name="embed_gradient_end_value"]').value || '');
+                        formData.append('embed_gradient_end_color', document.querySelector('input[name="embed_gradient_end_color"]').value || '#ff0000');
+                    }
                     formData.append('embed_timestamp', document.querySelector('input[name="embed_timestamp"]')?.checked || false);
                     formData.append('embed_footer_text', document.getElementById('embed_footer_text')?.value || '');
                     formData.append('embed_footer_icon', document.getElementById('embed_footer_icon')?.value || '');
@@ -864,10 +963,29 @@
                 
                 // Add embed fields if enabled
                 if (document.getElementById('embed_enabled').checked) {
+                    const colorMode = document.querySelector('input[name="embed_color_mode"]:checked')?.value || 'static';
+                    formData.append('embed_color_mode', colorMode);
                     formData.append('embed_title', document.getElementById('embed_title').value);
                     formData.append('embed_description', document.getElementById('embed_description').value);
                     formData.append('embed_url', document.getElementById('embed_url').value);
-                    formData.append('embed_color', document.getElementById('embed_color').value);
+                    if (colorMode === 'static') {
+                        formData.append('embed_color', document.getElementById('embed_color').value);
+                    } else if (colorMode === 'if') {
+                        formData.append('embed_color_monitor', document.getElementById('embed_color_monitor')?.value || '');
+                        document.querySelectorAll('input[name="embed_color_if_test[]"]').forEach((input, idx) => {
+                            const colorInput = document.querySelectorAll('input[name="embed_color_if_color[]"]')[idx];
+                            if (input.value && colorInput?.value) {
+                                formData.append('embed_color_if_test[]', input.value);
+                                formData.append('embed_color_if_color[]', colorInput.value);
+                            }
+                        });
+                    } else if (colorMode === 'gradient') {
+                        formData.append('embed_color_monitor', document.getElementById('embed_color_monitor_gradient')?.value || '');
+                        formData.append('embed_gradient_start_value', document.querySelector('input[name="embed_gradient_start_value"]').value || '');
+                        formData.append('embed_gradient_start_color', document.querySelector('input[name="embed_gradient_start_color"]').value || '#00ff00');
+                        formData.append('embed_gradient_end_value', document.querySelector('input[name="embed_gradient_end_value"]').value || '');
+                        formData.append('embed_gradient_end_color', document.querySelector('input[name="embed_gradient_end_color"]').value || '#ff0000');
+                    }
                     formData.append('embed_timestamp', document.querySelector('input[name="embed_timestamp"]').checked);
                     formData.append('embed_footer_text', document.getElementById('embed_footer_text').value);
                     formData.append('embed_footer_icon', document.getElementById('embed_footer_icon').value);
@@ -919,14 +1037,47 @@
             };
             
             function formatEmbedPreview(embed) {
+                const colorCss = (typeof embed.color === 'number') ? ('#' + embed.color.toString(16).padStart(6, '0')) : (embed.color || '#3498db');
                 return `
-                    <div class="embed-preview" style="border-left: 4px solid ${embed.color || '#3498db'}; padding: 10px; background: #2f3136; border-radius: 4px; margin: 10px 0;">
+                    <div class="embed-preview" style="border-left: 4px solid ${colorCss}; padding: 10px; background: #2f3136; border-radius: 4px; margin: 10px 0;">
                         ${embed.title ? `<div style="font-weight: bold; color: #fff; margin-bottom: 5px;">${embed.title}</div>` : ''}
                         ${embed.description ? `<div style="color: #dcddde; margin-bottom: 5px;">${embed.description}</div>` : ''}
                         ${embed.timestamp ? `<div style="color: #72767d; font-size: 12px;">${new Date().toISOString()}</div>` : ''}
                     </div>
                 `;
             }
+
+            // Color mode UI behavior
+            function updateColorModeUI() {
+                const mode = document.querySelector('input[name="embed_color_mode"]:checked')?.value || 'static';
+                document.getElementById('embed-color-static').style.display = (mode === 'static') ? 'block' : 'none';
+                document.getElementById('embed-color-if').style.display = (mode === 'if') ? 'block' : 'none';
+                document.getElementById('embed-color-gradient').style.display = (mode === 'gradient') ? 'block' : 'none';
+            }
+            document.querySelectorAll('input[name="embed_color_mode"]').forEach(r => r.addEventListener('change', updateColorModeUI));
+            updateColorModeUI();
+
+            // IF rules dynamic add/remove
+            const ifRulesContainer = document.getElementById('embed-color-if-rules');
+            document.getElementById('btn-add-if-rule')?.addEventListener('click', () => {
+                const row = document.createElement('div');
+                row.className = 'if-rule';
+                row.style.display = 'flex';
+                row.style.gap = '8px';
+                row.style.alignItems = 'center';
+                row.innerHTML = `
+                    <input type="text" name="embed_color_if_test[]" placeholder="e.g., x > 10" style="flex:1;">
+                    <input type="color" name="embed_color_if_color[]" value="#ffffff">
+                    <button type="button" class="btn-remove-if-rule" title="Remove">−</button>
+                `;
+                ifRulesContainer?.appendChild(row);
+            });
+            document.addEventListener('click', (e) => {
+                if (e.target && e.target.classList.contains('btn-remove-if-rule')) {
+                    const row = e.target.closest('.if-rule');
+                    row?.parentElement?.removeChild(row);
+                }
+            });
             
             // Close modal when clicking outside
             window.onclick = function(event) {
