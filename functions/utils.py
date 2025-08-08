@@ -396,8 +396,9 @@ def format_message_template(template, data, user_variables=None, extract_images=
             log_notification(f"Calculation replacement error: {str(e)}")
             return f"CALC_ERROR"
     
-    # First replace all {variable} patterns
-    pattern = r'\{([^}]+)\}'
+    # First replace all {variable} patterns with proper nested brace handling
+    # This pattern matches braces that can contain other braces (like {img:{nested}})
+    pattern = r'\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
     result = re.sub(pattern, replace_template_var, template)
     
     # Then replace all standalone [calculation] patterns (not inside variables)

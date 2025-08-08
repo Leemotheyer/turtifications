@@ -57,14 +57,30 @@ def create_discord_embed(embed_config, data=None, user_variables=None):
     
     # Thumbnail
     if embed_config.get('thumbnail_url'):
+        # Support {img:...} extraction in embed thumbnail URL
+        thumb_template = embed_config['thumbnail_url']
+        formatted_thumb, thumb_images = format_message_template(thumb_template, data or {}, user_variables, extract_images=True)
+        thumb_url = None
+        if thumb_images and len(thumb_images) > 0:
+            thumb_url = thumb_images[0]
+        else:
+            thumb_url = format_message_template(thumb_template, data or {}, user_variables)
         embed['thumbnail'] = {
-            'url': format_message_template(embed_config['thumbnail_url'], data or {}, user_variables)
+            'url': thumb_url
         }
     
     # Image
     if embed_config.get('image_url'):
+        # Support {img:...} extraction in embed image URL
+        image_template = embed_config['image_url']
+        formatted_image, image_urls = format_message_template(image_template, data or {}, user_variables, extract_images=True)
+        image_url = None
+        if image_urls and len(image_urls) > 0:
+            image_url = image_urls[0]
+        else:
+            image_url = format_message_template(image_template, data or {}, user_variables)
         embed['image'] = {
-            'url': format_message_template(embed_config['image_url'], data or {}, user_variables)
+            'url': image_url
         }
     
     # Fields

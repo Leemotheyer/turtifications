@@ -56,6 +56,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
 }
 
 header h1 {
@@ -89,6 +90,9 @@ header h1 {
 nav {
     display: flex;
     align-items: center;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 nav a {
@@ -1667,6 +1671,7 @@ button:active {
         top: 100%;
         left: 0;
         right: 0;
+        transform: none;
         background: var(--bg-secondary);
         border-top: 1px solid var(--border);
         flex-direction: column;

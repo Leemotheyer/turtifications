@@ -1,7 +1,21 @@
 import json
 import os
-import fcntl
+import sys
 from datetime import datetime
+
+# Cross-platform file locking
+if sys.platform == 'win32':
+    import msvcrt
+    def lock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    def unlock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+else:
+    import fcntl
+    def lock_file(f):
+        fcntl.flock(f, fcntl.LOCK_EX)
+    def unlock_file(f):
+        fcntl.flock(f, fcntl.LOCK_UN)
 
 # Configuration files
 CONFIG_FILE = 'data/config.json'
@@ -98,7 +112,7 @@ def save_config(config):
     fd = os.open(CONFIG_FILE, os.O_RDWR | os.O_CREAT)
     try:
         with os.fdopen(fd, 'r+') as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
+            lock_file(f)
             try:
                 try:
                     f.seek(0)
@@ -117,7 +131,7 @@ def save_config(config):
                 json.dump(config_copy, f, indent=4)
                 f.truncate()
             finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+                unlock_file(f)
     except Exception:
         # If something goes wrong with locked write, fall back to a best-effort write
         # using atomic replace to avoid partial writes.

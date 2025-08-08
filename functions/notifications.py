@@ -124,6 +124,42 @@ def send_discord_notification(message, flow=None, data=None):
         embed = None
         if flow and flow.get('embed_config', {}).get('enabled', False):
             embed = create_discord_embed(flow['embed_config'], message_data, user_variables)
+
+            # If embed has image/thumbnail URLs, download them and attach as files
+            # This makes embeds work even when URLs are not publicly accessible to Discord
+            try:
+                # Handle main image
+                if embed and isinstance(embed, dict):
+                    if 'image' in embed and isinstance(embed['image'], dict):
+                        image_url_value = embed['image'].get('url')
+                        if isinstance(image_url_value, str) and image_url_value.startswith(('http://', 'https://')):
+                            temp_file_path = download_image_to_temp(image_url_value)
+                            if temp_file_path:
+                                temp_files.append(temp_file_path)
+                                filename = get_image_filename_from_url(image_url_value)
+                                image_attachments.append({
+                                    'file_path': temp_file_path,
+                                    'filename': filename
+                                })
+                                # Reference the attached file in the embed
+                                embed['image']['url'] = f"attachment://{filename}"
+
+                    # Handle thumbnail
+                    if 'thumbnail' in embed and isinstance(embed['thumbnail'], dict):
+                        thumb_url_value = embed['thumbnail'].get('url')
+                        if isinstance(thumb_url_value, str) and thumb_url_value.startswith(('http://', 'https://')):
+                            temp_file_path = download_image_to_temp(thumb_url_value)
+                            if temp_file_path:
+                                temp_files.append(temp_file_path)
+                                filename = get_image_filename_from_url(thumb_url_value)
+                                image_attachments.append({
+                                    'file_path': temp_file_path,
+                                    'filename': filename
+                                })
+                                # Reference the attached file in the embed
+                                embed['thumbnail']['url'] = f"attachment://{filename}"
+            except Exception as embed_img_err:
+                log_notification(f"Embed image processing error: {str(embed_img_err)}")
         
         # Get webhook name and avatar, using defaults if empty
         config = get_config()
