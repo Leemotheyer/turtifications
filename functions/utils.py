@@ -5,11 +5,6 @@ import operator
 from datetime import datetime
 from functions.config import get_logs, save_logs, get_config, save_config
 
-def get_version():
-    """Get the current version of the app"""
-    with open('data/version.txt', 'r') as f:
-        return f.read().strip()
-
 def get_nested_value(data_dict, path):
     """Get a nested value from a dictionary using dot notation"""
     if not data_dict or not path:
@@ -176,14 +171,45 @@ def log_notification(message, category=None):
     # Save logs
     save_logs(logs)
 
-def format_message_template(template, data, user_variables=None):
-    """Simple and reliable message template formatter with user variable support and calculations"""
+def format_message_template(template, data, user_variables=None, extract_images=False):
+    """Simple and reliable message template formatter with user variable support and calculations
+    
+    Args:
+        template: The template string to process
+        data: Data dictionary for variable substitution
+        user_variables: User-defined variables
+        extract_images: If True, returns (formatted_text, image_urls) tuple instead of just text
+    
+    Returns:
+        If extract_images=False: formatted text string
+        If extract_images=True: (formatted_text, list_of_image_urls) tuple
+    """
     user_variables = user_variables or {}
+    
+    # Extract and collect image URLs from {img:url} patterns
+    image_urls = []
+    if extract_images:
+        # More sophisticated pattern to handle nested braces
+        img_pattern = r'\{img:([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+        img_matches = re.findall(img_pattern, template)
+        
+        for img_url in img_matches:
+            # Process the URL through the same variable substitution system
+            processed_url = format_message_template(img_url, data, user_variables, extract_images=False)
+            if processed_url and processed_url != "N/A" and processed_url != "ERROR":
+                image_urls.append(processed_url)
+        
+        # Remove image patterns from template for text processing
+        template = re.sub(img_pattern, '', template)
     
     def replace_template_var(match):
         """Replace template variables with actual values"""
         try:
             var_expr = match.group(1)  # Get the content inside {}
+            
+            # Handle {img:url} patterns - leave them unchanged when not extracting images
+            if var_expr.startswith('img:') and not extract_images:
+                return match.group(0)  # Return the whole match unchanged
             
             # Handle {time} variable
             if var_expr == 'time':
@@ -244,9 +270,9 @@ def format_message_template(template, data, user_variables=None):
                     return json.dumps(data[var_expr], indent=2)
                 return str(data[var_expr])
             
-            # Handle user variables: {$variable} format
-            if var_expr.startswith('$'):
-                var_name = var_expr[1:]
+            # Handle user variables: {$variable} or {var:variable} formats
+            if var_expr.startswith('$') or var_expr.startswith('var:'):
+                var_name = var_expr[1:] if var_expr.startswith('$') else var_expr[4:]
                 if var_name in user_variables:
                     return str(user_variables[var_name])
                 return 'N/A'
@@ -334,11 +360,21 @@ def format_message_template(template, data, user_variables=None):
                 if var_name in data and isinstance(data[var_name], (int, float)):
                     return str(data[var_name])
                 
-                # Handle user variables
+                # Handle user variables: {var:name} inside calculations
                 if var_name.startswith('var:'):
                     user_var = var_name[4:]
-                    if user_var in user_variables and isinstance(user_variables[user_var], (int, float)):
-                        return str(user_variables[user_var])
+                    if user_var in user_variables:
+                        val = user_variables[user_var]
+                        # Convert numeric strings to numbers
+                        if isinstance(val, (int, float)):
+                            return str(val)
+                        if isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit():
+                            try:
+                                return str(float(val) if '.' in val else int(val))
+                            except ValueError:
+                                return '0'
+                        # Non-numeric value defaults to 0 for calculations
+                        return '0'
                 
                 # Try direct lookup in calc_variables
                 if var_name in calc_variables:
@@ -370,15 +406,20 @@ def format_message_template(template, data, user_variables=None):
             log_notification(f"Calculation replacement error: {str(e)}")
             return f"CALC_ERROR"
     
-    # First replace all {variable} patterns
-    pattern = r'\{([^}]+)\}'
+    # First replace all {variable} patterns with proper nested brace handling
+    # This pattern matches braces that can contain other braces (like {img:{nested}})
+    pattern = r'\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
     result = re.sub(pattern, replace_template_var, template)
     
     # Then replace all standalone [calculation] patterns (not inside variables)
     calc_pattern = r'\[([^\]]+)\]'
     result = re.sub(calc_pattern, replace_calculation, result)
     
-    return result
+    # Return appropriate format based on extract_images flag
+    if extract_images:
+        return result, image_urls
+    else:
+        return result
 
 def safe_eval_calculation(expression, variables):
     """Safely evaluate mathematical expressions using AST"""

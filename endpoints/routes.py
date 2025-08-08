@@ -217,12 +217,13 @@ def init_routes(app):
                 # Parse embed configuration
                 embed_config = {}
                 if request.form.get('embed_enabled') == 'true':
+                    color_mode = request.form.get('embed_color_mode', 'static')
                     embed_config = {
                         'enabled': True,
                         'title': request.form.get('embed_title', ''),
                         'description': request.form.get('embed_description', ''),
                         'url': request.form.get('embed_url', ''),
-                        'color': request.form.get('embed_color', ''),
+                        'color_mode': color_mode,
                         'timestamp': request.form.get('embed_timestamp', 'true') == 'true',
                         'footer_text': request.form.get('embed_footer_text', ''),
                         'footer_icon': request.form.get('embed_footer_icon', ''),
@@ -234,6 +235,25 @@ def init_routes(app):
                         'fields': [],
                         'dynamic_fields': []
                     }
+                    if color_mode == 'static':
+                        embed_config['color'] = request.form.get('embed_color', '')
+                    elif color_mode == 'if':
+                        embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                        tests = request.form.getlist('embed_color_if_test[]')
+                        colors = request.form.getlist('embed_color_if_color[]')
+                        rules = []
+                        for t, c in zip(tests, colors):
+                            if t and c:
+                                rules.append({'test': t, 'color': c})
+                        embed_config['color_rules'] = rules
+                    elif color_mode == 'gradient':
+                        embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                        embed_config['gradient'] = {
+                            'start_value': request.form.get('embed_gradient_start_value', ''),
+                            'start_color': request.form.get('embed_gradient_start_color', '#00ff00'),
+                            'end_value': request.form.get('embed_gradient_end_value', ''),
+                            'end_color': request.form.get('embed_gradient_end_color', '#ff0000'),
+                        }
                     
 
                 
@@ -375,12 +395,13 @@ def init_routes(app):
             # Parse embed configuration for test
             embed_config = {}
             if request.form.get('embed_enabled') == 'true':
+                color_mode = request.form.get('embed_color_mode', 'static')
                 embed_config = {
                     'enabled': True,
                     'title': request.form.get('embed_title', ''),
                     'description': request.form.get('embed_description', ''),
                     'url': request.form.get('embed_url', ''),
-                    'color': request.form.get('embed_color', ''),
+                    'color_mode': color_mode,
                     'timestamp': request.form.get('embed_timestamp', 'true') == 'true',
                     'footer_text': request.form.get('embed_footer_text', ''),
                     'footer_icon': request.form.get('embed_footer_icon', ''),
@@ -392,6 +413,25 @@ def init_routes(app):
                     'fields': [],
                     'dynamic_fields': []
                 }
+                if color_mode == 'static':
+                    embed_config['color'] = request.form.get('embed_color', '')
+                elif color_mode == 'if':
+                    embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                    tests = request.form.getlist('embed_color_if_test[]')
+                    colors = request.form.getlist('embed_color_if_color[]')
+                    rules = []
+                    for t, c in zip(tests, colors):
+                        if t and c:
+                            rules.append({'test': t, 'color': c})
+                    embed_config['color_rules'] = rules
+                elif color_mode == 'gradient':
+                    embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                    embed_config['gradient'] = {
+                        'start_value': request.form.get('embed_gradient_start_value', ''),
+                        'start_color': request.form.get('embed_gradient_start_color', '#00ff00'),
+                        'end_value': request.form.get('embed_gradient_end_value', ''),
+                        'end_color': request.form.get('embed_gradient_end_color', '#ff0000'),
+                    }
                 
                 
             
@@ -780,12 +820,13 @@ def init_routes(app):
             # Create embed preview if enabled
             embed_preview = None
             if embed_enabled:
+                color_mode = request.form.get('embed_color_mode', 'static')
                 embed_config = {
                     'enabled': True,
                     'title': request.form.get('embed_title', ''),
                     'description': request.form.get('embed_description', ''),
                     'url': request.form.get('embed_url', ''),
-                    'color': request.form.get('embed_color', '#3498db'),
+                    'color_mode': color_mode,
                     'timestamp': request.form.get('embed_timestamp', 'true') == 'true',
                     'footer_text': request.form.get('embed_footer_text', ''),
                     'footer_icon': request.form.get('embed_footer_icon', ''),
@@ -797,7 +838,26 @@ def init_routes(app):
                     'fields': [],
                     'dynamic_fields': []
                 }
-                
+                if color_mode == 'static':
+                    embed_config['color'] = request.form.get('embed_color', '#3498db')
+                elif color_mode == 'if':
+                    embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                    tests = request.form.getlist('embed_color_if_test[]')
+                    colors = request.form.getlist('embed_color_if_color[]')
+                    rules = []
+                    for t, c in zip(tests, colors):
+                        if t and c:
+                            rules.append({'test': t, 'color': c})
+                    embed_config['color_rules'] = rules
+                elif color_mode == 'gradient':
+                    embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
+                    embed_config['gradient'] = {
+                        'start_value': request.form.get('embed_gradient_start_value', ''),
+                        'start_color': request.form.get('embed_gradient_start_color', '#00ff00'),
+                        'end_value': request.form.get('embed_gradient_end_value', ''),
+                        'end_color': request.form.get('embed_gradient_end_color', '#ff0000'),
+                    }
+
                 embed_preview = create_discord_embed(embed_config, sample_data, user_variables)
             
             return jsonify({
