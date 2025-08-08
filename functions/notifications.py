@@ -5,6 +5,7 @@ from datetime import datetime
 from functions.config import get_config, save_config
 from functions.utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
 from functions.embed_utils import create_discord_embed
+from functions.image_utils import download_image_to_temp, cleanup_temp_files, get_image_filename_from_url
 
 def extract_field_value(data, field_path):
     """Extract field value using bracket notation (e.g., result['0']['web_title'])"""
@@ -69,7 +70,10 @@ def send_discord_notification(message, flow=None, data=None):
                 return True  # Return True to indicate "handled" but not sent
     
     try:
-        # Handle message formatting with data
+        # Handle message formatting with data and extract images
+        image_attachments = []
+        temp_files = []
+        
         if isinstance(message, str):
             try:
                 # Use provided data, or get from flow's last_data
@@ -87,13 +91,34 @@ def send_discord_notification(message, flow=None, data=None):
                 else:
                     message_data = {}
                 
-                # Use the new template formatter
+                # Use the new template formatter with image extraction
                 user_variables = config.get('user_variables', {})
-                message = format_message_template(message, message_data, user_variables)
+                message, image_urls = format_message_template(message, message_data, user_variables, extract_images=True)
+                
+                # Download images from URLs and prepare for attachment
+                for image_url in image_urls:
+                    temp_file_path = download_image_to_temp(image_url)
+                    if temp_file_path:
+                        temp_files.append(temp_file_path)
+                        filename = get_image_filename_from_url(image_url)
+                        image_attachments.append({
+                            'file_path': temp_file_path,
+                            'filename': filename
+                        })
                 
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 log_notification(f"Data formatting error: {str(e)}")
-                message = format_message_template(message, {})
+                message, image_urls = format_message_template(message, {}, extract_images=True)
+                # Still try to download images even if data formatting failed
+                for image_url in image_urls:
+                    temp_file_path = download_image_to_temp(image_url)
+                    if temp_file_path:
+                        temp_files.append(temp_file_path)
+                        filename = get_image_filename_from_url(image_url)
+                        image_attachments.append({
+                            'file_path': temp_file_path,
+                            'filename': filename
+                        })
         
         # Check if embed is enabled and configured
         embed = None
@@ -127,8 +152,30 @@ def send_discord_notification(message, flow=None, data=None):
         if webhook_avatar:
             payload["avatar_url"] = webhook_avatar
         
-        response = requests.post(webhook_url, json=payload, timeout=10)
-        success = response.status_code == 204
+        # Send request with or without file attachments
+        try:
+            if image_attachments:
+                # Prepare multipart form data for file uploads
+                files = {}
+                for i, attachment in enumerate(image_attachments):
+                    file_key = f'file{i}'
+                    with open(attachment['file_path'], 'rb') as f:
+                        files[file_key] = (attachment['filename'], f.read(), 'image/png')
+                
+                # For multipart requests, payload needs to be sent as 'payload_json'
+                multipart_data = {
+                    'payload_json': json.dumps(payload)
+                }
+                
+                response = requests.post(webhook_url, data=multipart_data, files=files, timeout=30)
+            else:
+                # Standard JSON request without attachments
+                response = requests.post(webhook_url, json=payload, timeout=10)
+            
+            success = response.status_code == 204
+        finally:
+            # Always cleanup temporary files
+            cleanup_temp_files(temp_files)
         
         if success:
             # Log what was actually sent
@@ -139,6 +186,8 @@ def send_discord_notification(message, flow=None, data=None):
                 embed_title = embed.get('title', 'No title')
                 embed_description = embed.get('description', 'No description')[:100] + '...' if len(embed.get('description', '')) > 100 else embed.get('description', 'No description')
                 notification_details.append(f"Embed: {embed_title} - {embed_description}")
+            if image_attachments:
+                notification_details.append(f"Images: {len(image_attachments)} attachment(s)")
             
             notification_summary = " | ".join(notification_details) if notification_details else "Empty notification"
             log_notification(f"✅ Notification sent successfully to Discord webhook: {notification_summary}")
@@ -162,6 +211,9 @@ def send_discord_notification(message, flow=None, data=None):
         
     except Exception as e:
         log_notification(f"❌ Discord send error: {str(e)}")
+        # Cleanup temporary files on error
+        if 'temp_files' in locals():
+            cleanup_temp_files(temp_files)
         return False
 
 def make_api_request(endpoint, headers=None, request_body=None):

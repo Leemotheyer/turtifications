@@ -171,14 +171,45 @@ def log_notification(message, category=None):
     # Save logs
     save_logs(logs)
 
-def format_message_template(template, data, user_variables=None):
-    """Simple and reliable message template formatter with user variable support and calculations"""
+def format_message_template(template, data, user_variables=None, extract_images=False):
+    """Simple and reliable message template formatter with user variable support and calculations
+    
+    Args:
+        template: The template string to process
+        data: Data dictionary for variable substitution
+        user_variables: User-defined variables
+        extract_images: If True, returns (formatted_text, image_urls) tuple instead of just text
+    
+    Returns:
+        If extract_images=False: formatted text string
+        If extract_images=True: (formatted_text, list_of_image_urls) tuple
+    """
     user_variables = user_variables or {}
+    
+    # Extract and collect image URLs from {img:url} patterns
+    image_urls = []
+    if extract_images:
+        # More sophisticated pattern to handle nested braces
+        img_pattern = r'\{img:([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+        img_matches = re.findall(img_pattern, template)
+        
+        for img_url in img_matches:
+            # Process the URL through the same variable substitution system
+            processed_url = format_message_template(img_url, data, user_variables, extract_images=False)
+            if processed_url and processed_url != "N/A" and processed_url != "ERROR":
+                image_urls.append(processed_url)
+        
+        # Remove image patterns from template for text processing
+        template = re.sub(img_pattern, '', template)
     
     def replace_template_var(match):
         """Replace template variables with actual values"""
         try:
             var_expr = match.group(1)  # Get the content inside {}
+            
+            # Handle {img:url} patterns - leave them unchanged when not extracting images
+            if var_expr.startswith('img:') and not extract_images:
+                return match.group(0)  # Return the whole match unchanged
             
             # Handle {time} variable
             if var_expr == 'time':
@@ -373,7 +404,11 @@ def format_message_template(template, data, user_variables=None):
     calc_pattern = r'\[([^\]]+)\]'
     result = re.sub(calc_pattern, replace_calculation, result)
     
-    return result
+    # Return appropriate format based on extract_images flag
+    if extract_images:
+        return result, image_urls
+    else:
+        return result
 
 def safe_eval_calculation(expression, variables):
     """Safely evaluate mathematical expressions using AST"""
