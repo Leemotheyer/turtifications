@@ -270,9 +270,9 @@ def format_message_template(template, data, user_variables=None, extract_images=
                     return json.dumps(data[var_expr], indent=2)
                 return str(data[var_expr])
             
-            # Handle user variables: {$variable} format
-            if var_expr.startswith('$'):
-                var_name = var_expr[1:]
+            # Handle user variables: {$variable} or {var:variable} formats
+            if var_expr.startswith('$') or var_expr.startswith('var:'):
+                var_name = var_expr[1:] if var_expr.startswith('$') else var_expr[4:]
                 if var_name in user_variables:
                     return str(user_variables[var_name])
                 return 'N/A'
@@ -360,11 +360,21 @@ def format_message_template(template, data, user_variables=None, extract_images=
                 if var_name in data and isinstance(data[var_name], (int, float)):
                     return str(data[var_name])
                 
-                # Handle user variables
+                # Handle user variables: {var:name} inside calculations
                 if var_name.startswith('var:'):
                     user_var = var_name[4:]
-                    if user_var in user_variables and isinstance(user_variables[user_var], (int, float)):
-                        return str(user_variables[user_var])
+                    if user_var in user_variables:
+                        val = user_variables[user_var]
+                        # Convert numeric strings to numbers
+                        if isinstance(val, (int, float)):
+                            return str(val)
+                        if isinstance(val, str) and val.replace('.', '').replace('-', '').isdigit():
+                            try:
+                                return str(float(val) if '.' in val else int(val))
+                            except ValueError:
+                                return '0'
+                        # Non-numeric value defaults to 0 for calculations
+                        return '0'
                 
                 # Try direct lookup in calc_variables
                 if var_name in calc_variables:
