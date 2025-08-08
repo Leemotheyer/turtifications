@@ -130,6 +130,35 @@ class TestImageUtils(unittest.TestCase):
         # Verify result is None on failure
         self.assertIsNone(result)
         mock_log.assert_called()
+    
+    @patch('tempfile.mkstemp')
+    @patch('requests.get')
+    def test_download_image_to_temp_fd_leak_prevention(self, mock_get, mock_mkstemp):
+        """Test that file descriptors are properly closed on failure"""
+        # Setup mocks
+        mock_fd = 123  # Mock file descriptor
+        temp_file_path = "/tmp/test_image.png"
+        mock_mkstemp.return_value = (mock_fd, temp_file_path)
+        
+        # Mock requests.get to raise an exception after mkstemp but before fdopen
+        mock_get.side_effect = Exception("Network error")
+        
+        with patch('os.close') as mock_close, \
+             patch('os.path.exists', return_value=True) as mock_exists, \
+             patch('os.unlink') as mock_unlink, \
+             patch('functions.image_utils.log_notification') as mock_log:
+            
+            result = download_image_to_temp("http://example.com/image.png")
+        
+        # Verify that the file descriptor was closed
+        mock_close.assert_called_once_with(mock_fd)
+        # Verify that os.path.exists was called to check if file exists
+        mock_exists.assert_called_with(temp_file_path)
+        # Verify that the temp file was removed
+        mock_unlink.assert_called_once_with(temp_file_path)
+        # Verify result is None on failure
+        self.assertIsNone(result)
+        mock_log.assert_called()
 
 
 class TestImageTemplateProcessing(unittest.TestCase):

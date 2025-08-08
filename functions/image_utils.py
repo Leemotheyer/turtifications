@@ -10,6 +10,9 @@ def download_image_to_temp(image_url):
     Download an image from a URL and save it to a temporary file.
     Returns the temporary file path if successful, None otherwise.
     """
+    temp_fd = None
+    temp_path = None
+    
     try:
         # Parse the URL to get filename and extension
         parsed_url = urlparse(image_url)
@@ -38,6 +41,7 @@ def download_image_to_temp(image_url):
         
         # Write the image data to the temporary file
         with os.fdopen(temp_fd, 'wb') as temp_file:
+            temp_fd = None  # fdopen takes ownership of the file descriptor
             for chunk in response.iter_content(chunk_size=8192):
                 temp_file.write(chunk)
         
@@ -46,21 +50,31 @@ def download_image_to_temp(image_url):
         
     except requests.RequestException as e:
         log_notification(f"❌ Failed to download image from {image_url}: {str(e)}")
-        # Clean up the temp file if it was created
-        try:
-            if 'temp_path' in locals():
+        # Clean up resources
+        if temp_fd is not None:
+            try:
+                os.close(temp_fd)
+            except:
+                pass
+        if temp_path and os.path.exists(temp_path):
+            try:
                 os.unlink(temp_path)
-        except:
-            pass
+            except:
+                pass
         return None
     except Exception as e:
         log_notification(f"❌ Error downloading image from {image_url}: {str(e)}")
-        # Clean up the temp file if it was created
-        try:
-            if 'temp_path' in locals():
+        # Clean up resources
+        if temp_fd is not None:
+            try:
+                os.close(temp_fd)
+            except:
+                pass
+        if temp_path and os.path.exists(temp_path):
+            try:
                 os.unlink(temp_path)
-        except:
-            pass
+            except:
+                pass
         return None
 
 def cleanup_temp_file(file_path):

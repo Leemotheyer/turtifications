@@ -96,6 +96,7 @@ Images work alongside Discord embeds:
 - **Invalid URLs**: Skipped with warning logs
 - **Network Timeouts**: 10-second timeout for downloads
 - **Cleanup Failures**: Logged but don't affect functionality
+- **Resource Management**: File descriptors are properly closed even on exceptions to prevent resource leaks
 
 ### File Management
 
