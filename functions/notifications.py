@@ -31,7 +31,13 @@ def extract_field_value(data, field_path):
             else:
                 return None
         
-        return str(current) if current is not None else None
+        if current is not None:
+            # If the result is a dictionary or list, convert to JSON string for consistent comparison
+            if isinstance(current, (dict, list)):
+                return json.dumps(current, sort_keys=True)
+            else:
+                return str(current)
+        return None
         
     except Exception as e:
         log_notification(f"Field extraction error for '{field_path}': {str(e)}")
@@ -74,26 +80,30 @@ def send_discord_notification(message, flow=None, data=None):
         image_attachments = []
         temp_files = []
         
+        # Use provided data, or get from flow's last_data
+        if data is not None:
+            message_data = data
+        elif flow and flow.get('last_data'):
+            if isinstance(flow['last_data'], str):
+                try:
+                    message_data = json.loads(flow['last_data'])
+                except json.JSONDecodeError:
+                    log_notification(f"Failed to parse last_data JSON: {flow['last_data']}")
+                    message_data = {}
+            else:
+                message_data = flow['last_data']
+        else:
+            message_data = {}
+        
         if isinstance(message, str):
             try:
-                # Use provided data, or get from flow's last_data
-                if data is not None:
-                    message_data = data
-                elif flow and flow.get('last_data'):
-                    if isinstance(flow['last_data'], str):
-                        try:
-                            message_data = json.loads(flow['last_data'])
-                        except json.JSONDecodeError:
-                            log_notification(f"Failed to parse last_data JSON: {flow['last_data']}")
-                            message_data = {}
-                    else:
-                        message_data = flow['last_data']
-                else:
-                    message_data = {}
-                
                 # Use the new template formatter with image extraction
                 user_variables = config.get('user_variables', {})
                 message, image_urls = format_message_template(message, message_data, user_variables, extract_images=True)
+                
+                # Log image extraction for debugging
+                if image_urls:
+                    log_notification(f"🖼️ Extracted {len(image_urls)} image URL(s) from message template")
                 
                 # Download images from URLs and prepare for attachment
                 for image_url in image_urls:
@@ -105,6 +115,9 @@ def send_discord_notification(message, flow=None, data=None):
                             'file_path': temp_file_path,
                             'filename': filename
                         })
+                        log_notification(f"🖼️ Downloaded image: {filename} from {image_url}")
+                    else:
+                        log_notification(f"❌ Failed to download image from: {image_url}")
                 
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 log_notification(f"Data formatting error: {str(e)}")
@@ -133,6 +146,7 @@ def send_discord_notification(message, flow=None, data=None):
                     if 'image' in embed and isinstance(embed['image'], dict):
                         image_url_value = embed['image'].get('url')
                         if isinstance(image_url_value, str) and image_url_value.startswith(('http://', 'https://')):
+                            log_notification(f"🖼️ Processing embed image: {image_url_value}")
                             temp_file_path = download_image_to_temp(image_url_value)
                             if temp_file_path:
                                 temp_files.append(temp_file_path)
@@ -143,11 +157,15 @@ def send_discord_notification(message, flow=None, data=None):
                                 })
                                 # Reference the attached file in the embed
                                 embed['image']['url'] = f"attachment://{filename}"
+                                log_notification(f"🖼️ Embed image attached: {filename}")
+                            else:
+                                log_notification(f"❌ Failed to download embed image: {image_url_value}")
 
                     # Handle thumbnail
                     if 'thumbnail' in embed and isinstance(embed['thumbnail'], dict):
                         thumb_url_value = embed['thumbnail'].get('url')
                         if isinstance(thumb_url_value, str) and thumb_url_value.startswith(('http://', 'https://')):
+                            log_notification(f"🖼️ Processing embed thumbnail: {thumb_url_value}")
                             temp_file_path = download_image_to_temp(thumb_url_value)
                             if temp_file_path:
                                 temp_files.append(temp_file_path)
@@ -158,6 +176,9 @@ def send_discord_notification(message, flow=None, data=None):
                                 })
                                 # Reference the attached file in the embed
                                 embed['thumbnail']['url'] = f"attachment://{filename}"
+                                log_notification(f"🖼️ Embed thumbnail attached: {filename}")
+                            else:
+                                log_notification(f"❌ Failed to download embed thumbnail: {thumb_url_value}")
             except Exception as embed_img_err:
                 log_notification(f"Embed image processing error: {str(embed_img_err)}")
         
@@ -209,7 +230,7 @@ def send_discord_notification(message, flow=None, data=None):
                 # Standard JSON request without attachments
                 response = requests.post(webhook_url, json=payload, timeout=10)
             
-            success = response.status_code == 204
+            success = response.status_code in [200, 204]
         finally:
             # Always cleanup temporary files
             cleanup_temp_files(temp_files)
@@ -228,6 +249,7 @@ def send_discord_notification(message, flow=None, data=None):
             
             notification_summary = " | ".join(notification_details) if notification_details else "Empty notification"
             log_notification(f"✅ Notification sent successfully to Discord webhook: {notification_summary}")
+            log_notification(f"✅ Discord API returned status {response.status_code} - notification sent successfully")
             
             # Only log to notification-specific log if there's actual content
             if message and message.strip() or embed:
@@ -243,6 +265,8 @@ def send_discord_notification(message, flow=None, data=None):
                 log_notification_sent(flow_name, message, embed_info, webhook_name)
         else:
             log_notification(f"❌ Failed to send notification to Discord (Status: {response.status_code})")
+            if response.text:
+                log_notification(f"❌ Discord error response: {response.text[:500]}")
         
         return success
         
@@ -323,6 +347,7 @@ def check_endpoints():
                             # Extract field value using the same logic as template formatter
                             if flow.get('field'):
                                 current_value = extract_field_value(api_data, flow['field'])
+                                log_notification(f"🔍 Field extraction for '{flow['name']}': field='{flow['field']}' -> value='{current_value}'")
                             else:
                                 current_value = None
                         except Exception as api_error:
@@ -344,11 +369,15 @@ def check_endpoints():
                                 'old_value': flow.get('last_value'),  # Include old_value for template support
                                 'api_data': api_data
                             })
-                            if send_discord_notification(flow['message_template'], flow, timer_data):
+                            notification_sent = send_discord_notification(flow['message_template'], flow, timer_data)
+                            if notification_sent:
                                 flow['last_run'] = now
                                 # Store current value as last_value for next run
                                 flow['last_value'] = current_value
                                 config_changed = True
+                                log_notification(f"✅ Updated last_value for timer flow '{flow['name']}' to '{current_value}'")
+                            else:
+                                log_notification(f"❌ Failed to send notification for timer flow '{flow['name']}', last_value not updated")
                     
                     # Handle change detection flows (immediate on change)
                     elif flow['trigger_type'] == 'on_change':
@@ -372,9 +401,15 @@ def check_endpoints():
                                 'old_value': flow['last_value'],
                                 'api_data': api_data  # Keep original API data as well
                             })
-                            if send_discord_notification(flow['message_template'], flow, change_data):
+                            notification_sent = send_discord_notification(flow['message_template'], flow, change_data)
+                            if notification_sent:
                                 flow['last_value'] = current_value
                                 config_changed = True
+                                log_notification(f"✅ Updated last_value for flow '{flow['name']}' to '{current_value}'")
+                            else:
+                                log_notification(f"❌ Failed to send notification for flow '{flow['name']}', last_value not updated")
+                        else:
+                            log_notification(f"🔄 No change detected: Field '{flow['field']}' value '{current_value}' unchanged in flow '{flow['name']}'")
                                 
                 except Exception as e:
                     log_notification(f"Error in flow {flow.get('name', 'unnamed')}: {str(e)}")

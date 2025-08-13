@@ -474,6 +474,9 @@ def init_routes(app):
                 default_webhook = config.get('discord_webhook', '')
                 if not default_webhook:
                     return jsonify({'success': False, 'error': 'Webhook URL is required (no default configured)'})
+                else:
+                    # Use the default webhook URL
+                    test_flow['webhook_url'] = default_webhook
             
             # Allow empty message template if embed is enabled
             if not test_flow['message_template'] and not test_flow.get('embed_config', {}).get('enabled', False):
