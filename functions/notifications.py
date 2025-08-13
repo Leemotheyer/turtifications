@@ -2,7 +2,7 @@ import requests
 import json
 import time
 from datetime import datetime
-from functions.config import get_config, save_config
+from functions.config import get_config, save_config, increment_notification_counter
 from functions.utils import log_notification, format_message_template, evaluate_condition, log_notification_sent
 from functions.embed_utils import create_discord_embed
 from functions.image_utils import download_image_to_temp, cleanup_temp_files, get_image_filename_from_url, get_mime_type_from_extension
@@ -183,7 +183,6 @@ def send_discord_notification(message, flow=None, data=None):
                 log_notification(f"Embed image processing error: {str(embed_img_err)}")
         
         # Get webhook name and avatar, using defaults if empty
-        config = get_config()
         user_variables = config.get('user_variables', {})
         webhook_name = flow.get('webhook_name', '') if flow else ''
         webhook_avatar = flow.get('webhook_avatar', '') if flow else ''
@@ -248,21 +247,22 @@ def send_discord_notification(message, flow=None, data=None):
                 notification_details.append(f"Images: {len(image_attachments)} attachment(s)")
             
             notification_summary = " | ".join(notification_details) if notification_details else "Empty notification"
-            log_notification(f"✅ Notification sent successfully to Discord webhook: {notification_summary}")
-            log_notification(f"✅ Discord API returned status {response.status_code} - notification sent successfully")
+            log_notification(f"✅ Notification sent successfully to Discord webhook (Status: {response.status_code}): {notification_summary}")
             
-            # Only log to notification-specific log if there's actual content
-            if message and message.strip() or embed:
-                flow_name = flow.get('name', 'Test') if flow else 'Test'
-                embed_info = None
-                if embed:
-                    embed_info = {
-                        'title': embed.get('title', ''),
-                        'description': embed.get('description', '')[:200] if embed.get('description') else '',
-                        'color': embed.get('color', ''),
-                        'url': embed.get('url', '')
-                    }
-                log_notification_sent(flow_name, message, embed_info, webhook_name)
+            # Increment total_notifications_sent
+            increment_notification_counter()
+            
+            # Always log to notification-specific log when notification is sent successfully
+            flow_name = flow.get('name', 'Test') if flow else 'Test'
+            embed_info = None
+            if embed:
+                embed_info = {
+                    'title': embed.get('title', ''),
+                    'description': embed.get('description', '')[:200] if embed.get('description') else '',
+                    'color': embed.get('color', ''),
+                    'url': embed.get('url', '')
+                }
+            log_notification_sent(flow_name, message, embed_info, webhook_name)
         else:
             log_notification(f"❌ Failed to send notification to Discord (Status: {response.status_code})")
             if response.text:

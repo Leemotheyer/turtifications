@@ -103,6 +103,7 @@ def log_notification_sent(flow_name, message_content, embed_info=None, webhook_n
     has_message = message_content and str(message_content).strip()
     has_embed = embed_info and (embed_info.get('title') or embed_info.get('description'))
     
+    # Only log to notification logs if we have meaningful content
     if not has_message and not has_embed:
         return
         
@@ -133,12 +134,6 @@ def log_notification_sent(flow_name, message_content, embed_info=None, webhook_n
     
     # Save notification logs
     save_notification_logs(logs)
-    
-    # Increment total notifications counter
-    config = get_config()
-    total_sent = config.get('total_notifications_sent', 0)
-    config['total_notifications_sent'] = total_sent + 1
-    save_config(config)
 
 def log_notification(message, category=None):
     """Log a notification message with timestamp and category"""
