@@ -24,7 +24,7 @@ A powerful Discord notification system built with Flask that monitors APIs, dete
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/notification-organizer.git
+git clone https://github.com/Leemotheyer/turtifications.git
 cd notification-organizer
 pip install -r requirements.txt
 python app.py
