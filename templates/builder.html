@@ -33,13 +33,17 @@
                     {% set pf = prefill_flow if prefill_flow is defined else {} %}
                     {% set tt = pf.get('trigger_type', 'on_change') %}
                     {% set ec = pf.get('embed_config', {}) %}
-                    <section class="builder-section">
-                        <h3>Basic Information</h3>
+                    <details class="builder-collapsible" open>
+                        <summary><h3>Basic Information</h3></summary>
+                        <div class="builder-collapsible-body">
                         <div class="form-group">
                             <label for="webhook_url">Discord Webhook URL:</label>
                             <input type="url" id="webhook_url" name="webhook_url" 
                                    value="{{ editing_flow.webhook_url if editing_flow else '' }}" 
-                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}" required>
+                                   placeholder="{{ config.discord_webhook if config.discord_webhook else 'https://discord.com/api/webhooks/...' }}"
+                                   data-has-default="{{ 'true' if config.discord_webhook else 'false' }}"
+                                   {% if not config.discord_webhook %}required{% endif %}>
+                            <small>Leave blank to use the default from Configure{% if config.discord_webhook %} (already set){% endif %}.</small>
                         </div>
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>
@@ -63,13 +67,13 @@
                             <input type="checkbox" id="active" name="active" value="true" {% if pf.get('active', True) %}checked{% endif %}>
                             <small>Enable or disable this flow</small>
                         </div>
-                    </section>
+                        </div>
+                    </details>
 
-                    <section class="builder-section">
-                        <h3>Trigger Settings</h3>
-
-
-                        <div class="form-group">
+                    <details class="builder-collapsible" open>
+                        <summary><h3>Trigger Settings</h3></summary>
+                        <div class="builder-collapsible-body">
+                        <div class="form-group" id="api-endpoint-fields">
                             <label for="endpoint">API Endpoint:</label>
                             <input type="url" id="endpoint" name="endpoint" 
                                    value="{{ pf.get('endpoint', '') }}"
@@ -79,7 +83,7 @@
                             <input type="text" id="field" name="field" 
                                    value="{{ pf.get('field', '') }}"
                                    placeholder="result['0']['web_title']">
-                            <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title'] (required for change detection)</small>
+                            <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title']</small>
                         </div>
                         <details class="advanced-api-settings">
                             <summary><strong>Advanced API Settings</strong> (optional)</summary>
@@ -172,19 +176,18 @@
                                 </div>
                                 <small>Configure your external service (Sonarr, Radarr, etc.) to POST JSON data to this URL</small>
                             </div>
-                            <div class="help-text">
-                                <small>
-                                    <strong>💡 Which trigger type should I choose?</strong><br>
-                                    • <strong>Scheduled:</strong> Use for regular reports, health checks, or when you want notifications at specific times regardless of data changes<br>
-                                    • <strong>Change Detection:</strong> Use for immediate alerts when something changes (status updates, new data, thresholds crossed)<br>
-                                    • <strong>Incoming Webhook:</strong> Use when external systems need to trigger notifications
-                                </small>
-                            </div>
                         </div>
                         <div class="form-group" id="timer-options" style="display: none;">
                             <label for="interval">Interval (minutes):</label>
                             <input type="number" id="interval" name="interval" min="1" 
                                    value="{{ pf.get('interval', 5) }}" required>
+                        </div>
+                        <div id="on-change-options" class="form-group" style="display: none;">
+                            <label for="poll_interval">Poll interval (seconds):</label>
+                            <input type="number" id="poll_interval" name="poll_interval" min="1" max="3600"
+                                   value="{{ pf.get('poll_interval', '') }}"
+                                   placeholder="{{ config.check_interval }}">
+                            <small>How often to check this flow. Leave blank to use the global default ({{ config.check_interval }}s).</small>
                         </div>
                         <div class="form-group">
                             <label>
@@ -214,18 +217,16 @@
                                     <br>
                                     <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
                                     <br>
-                                    • <code>value > old_value</code> - Only if value increased (for scheduled monitoring)
-                                    <br>
-                                    <strong>Note:</strong> Change Detection already filters for <code>value != old_value</code>
-                                    <br>
                                     <strong>Operators:</strong> ==, !=, >, <, >=, <=, and, or, not, in, not in
                                 </small>
                             </div>
                         </div>
-                    </section>
+                        </div>
+                    </details>
 
-                    <section class="builder-section">
-                        <h3>Notification Content</h3>
+                    <details class="builder-collapsible" open>
+                        <summary><h3>Notification Content</h3></summary>
+                        <div class="builder-collapsible-body">
                         <div class="form-group">
                             <label for="webhook_name">Webhook Name:</label>
                             <input type="text" id="webhook_name" name="webhook_name" 
@@ -250,7 +251,6 @@
                                 <br><br>
                                 <strong>For API data:</strong> Use {value} or {data} for full response
                                 <br>
-                                <strong>Variable Examples:</strong>
                                 <strong>Variable Examples:</strong>
                                 <br>
                                 • {result['downloaded_issues']} - Access nested data
@@ -466,7 +466,8 @@
                             
                             <small>💡 Template variables like {time}, {value}, and {data} work in all embed fields.</small>
                         </div>
-                    </section>
+                        </div>
+                    </details>
                     
                     <div class="form-actions">
                         {% if editing_flow %}
@@ -492,11 +493,16 @@
                     </div>
                 </div>
                 
-                <!-- Category Filter -->
-                <div class="category-filter">
-                    <label for="category-filter">Filter by Category:</label>
-                    <select id="category-filter">
-                        <option value="">All Categories</option>
+                <!-- Search and Category Filter -->
+                <div class="flows-toolbar">
+                    <div class="flow-search">
+                        <label for="flow-search">Search flows</label>
+                        <input type="search" id="flow-search" placeholder="Search by name..." autocomplete="off">
+                    </div>
+                    <div class="category-filter">
+                        <label for="category-filter">Category</label>
+                        <select id="category-filter">
+                            <option value="">All categories</option>
                         <option value="General">General</option>
                         <option value="Media">Media</option>
                         <option value="System">System</option>
@@ -504,6 +510,7 @@
                         <option value="Reports">Reports</option>
                         <option value="Alerts">Alerts</option>
                     </select>
+                    </div>
                 </div>
                 
                 <!-- Import/Export Section -->
@@ -516,7 +523,7 @@
                 </div>
                 <div class="flows-list">
             {% for flow in flows %}
-                <div class="flow-card {% if not flow.active %}flow-inactive{% endif %}" data-category="{{ flow.category or 'General' }}">
+                <div class="flow-card {% if not flow.active %}flow-inactive{% endif %}" data-category="{{ flow.category or 'General' }}" data-flow-name="{{ flow.name|lower }}">
                     <div class="flow-header">
                         <h3>{{ flow.name }}</h3>
                         <label class="switch">
@@ -553,7 +560,9 @@
                         <a href="{{ url_for('notification_builder', edit=loop.index0) }}" class="btn-edit">Edit</a>
                         <a href="{{ url_for('duplicate_flow_route', flow_name=flow.name) }}" class="btn-duplicate">Copy</a>
                         <a href="{{ url_for('export_single_flow', flow_name=flow.name) }}" class="btn-export-single" title="Export flow">Export</a>
-                        <a href="{{ url_for('delete_flow', index=loop.index0) }}" class="btn-delete" onclick="return confirm('Are you sure you want to delete this flow?');">Delete</a>
+                        <form method="POST" action="{{ url_for('delete_flow', index=loop.index0) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this flow?');">
+                            <button type="submit" class="btn-delete">Delete</button>
+                        </form>
                     </div>
                 </div>
             {% else %}
@@ -803,6 +812,8 @@
         
             function updateTriggerOptions() {
                 const selectedTrigger = document.querySelector('input[name="trigger_type"]:checked')?.value || 'on_change';
+                const apiEndpointFields = document.getElementById('api-endpoint-fields');
+                const pollIntervalOptions = document.getElementById('on-change-options');
         
                 // Show/hide Timer options
                 if (timerOptions) {
@@ -814,11 +825,17 @@
                 // Show/hide Change detection options
                 if (changeOptions) {
                     changeOptions.style.display = selectedTrigger === 'on_change' ? 'block' : 'none';
-                    const endpointInput = document.getElementById('endpoint');
-                    const fieldInput = document.getElementById('field');
-                    if (endpointInput) endpointInput.required = selectedTrigger === 'on_change';
-                    if (fieldInput) fieldInput.required = selectedTrigger === 'on_change';
                 }
+                if (pollIntervalOptions) {
+                    pollIntervalOptions.style.display = selectedTrigger === 'on_change' ? 'block' : 'none';
+                }
+                if (apiEndpointFields) {
+                    apiEndpointFields.style.display = selectedTrigger === 'webhook' ? 'none' : 'block';
+                }
+                const endpointInput = document.getElementById('endpoint');
+                const fieldInput = document.getElementById('field');
+                if (endpointInput) endpointInput.required = selectedTrigger === 'on_change';
+                if (fieldInput) fieldInput.required = selectedTrigger === 'on_change';
                 
                 // Update webhook visibility
                 updateWebhookVisibility();
@@ -866,6 +883,7 @@
                 formData.append('endpoint', document.getElementById('endpoint').value || '');
                 formData.append('field', document.getElementById('field').value || '');
                 formData.append('interval', document.getElementById('interval')?.value || '5');
+                formData.append('poll_interval', document.getElementById('poll_interval')?.value || '');
                 formData.append('condition_enabled', document.getElementById('condition_enabled')?.checked || false);
                 formData.append('condition', document.getElementById('condition')?.value || '');
                 formData.append('active', false);
@@ -967,35 +985,46 @@
             // Import file handling
             document.getElementById('import-file')?.addEventListener('change', function() {
                 if (this.files.length > 0) {
-                    document.getElementById('import-submit').click();
+                    const fileName = this.files[0].name;
+                    if (confirm(`Import flows from "${fileName}"? Existing flows with the same name may be overwritten.`)) {
+                        document.getElementById('import-submit').click();
+                    } else {
+                        this.value = '';
+                    }
                 }
             });
+            
+            function applyFlowFilters() {
+                const selectedCategory = document.getElementById('category-filter')?.value || '';
+                const searchQuery = (document.getElementById('flow-search')?.value || '').trim().toLowerCase();
+                const flowCards = document.querySelectorAll('.flow-card');
+                let visibleCount = 0;
+
+                flowCards.forEach(card => {
+                    const cardCategory = card.dataset.category;
+                    const cardName = card.dataset.flowName || '';
+                    const matchesCategory = !selectedCategory || cardCategory === selectedCategory;
+                    const matchesSearch = !searchQuery || cardName.includes(searchQuery);
+                    const visible = matchesCategory && matchesSearch;
+                    card.style.display = visible ? 'block' : 'none';
+                    if (visible) visibleCount++;
+                });
+
+                const flowsHeader = document.querySelector('.flows-header .panel-title');
+                if (flowsHeader) {
+                    const totalFlows = flowCards.length;
+                    flowsHeader.textContent = visibleCount === totalFlows
+                        ? `Saved flows (${totalFlows})`
+                        : `Saved flows (${visibleCount}/${totalFlows})`;
+                }
+            }
+
+            document.getElementById('flow-search')?.addEventListener('input', applyFlowFilters);
             
             // Category filter functionality
             const categoryFilter = document.getElementById('category-filter');
             if (categoryFilter) {
-                categoryFilter.addEventListener('change', function() {
-                    const selectedCategory = this.value;
-                    const flowCards = document.querySelectorAll('.flow-card');
-                    let visibleCount = 0;
-                    
-                    flowCards.forEach(card => {
-                        const cardCategory = card.dataset.category;
-                        if (!selectedCategory || cardCategory === selectedCategory) {
-                            card.style.display = 'block';
-                            visibleCount++;
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    });
-                    
-                    // Update the flows count in the header
-                    const flowsHeader = document.querySelector('.flows-header h3');
-                    if (flowsHeader) {
-                        const totalFlows = document.querySelectorAll('.flow-card').length;
-                        flowsHeader.textContent = `Saved Flows (${visibleCount}/${totalFlows})`;
-                    }
-                });
+                categoryFilter.addEventListener('change', applyFlowFilters);
             }
             
             // Preview notification functionality
@@ -1137,6 +1166,16 @@
                 }
             };
 
+            function isValidUrl(value) {
+                if (!value) return true;
+                try {
+                    const parsed = new URL(value);
+                    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+                } catch (err) {
+                    return false;
+                }
+            }
+
             // Inline validation helpers
             function showFieldError(input, message) {
                 let error = input.parentElement.querySelector('.field-error');
@@ -1154,15 +1193,18 @@
                 input.classList.remove('input-error');
             }
             // Main form validation
-            const form = document.querySelector('form');
+            const form = document.querySelector('.builder-left form');
             if (form) {
                 form.addEventListener('submit', function(e) {
                     let hasError = false;
-                    // Always required
+                    const hasDefaultWebhook = document.getElementById('webhook_url')?.dataset.hasDefault === 'true';
                     const webhookUrl = document.getElementById('webhook_url');
                     const flowName = document.getElementById('flow_name');
-                    if (webhookUrl && !webhookUrl.value.trim()) {
-                        showFieldError(webhookUrl, 'This field is required.');
+                    if (webhookUrl && !webhookUrl.value.trim() && !hasDefaultWebhook) {
+                        showFieldError(webhookUrl, 'Webhook URL is required when no default is configured.');
+                        hasError = true;
+                    } else if (webhookUrl && webhookUrl.value.trim() && !isValidUrl(webhookUrl.value.trim())) {
+                        showFieldError(webhookUrl, 'Enter a valid http or https URL.');
                         hasError = true;
                     } else if (webhookUrl) {
                         clearFieldError(webhookUrl);
@@ -1190,6 +1232,9 @@
                         if (endpoint && !endpoint.value.trim()) {
                             showFieldError(endpoint, 'API Endpoint is required for change detection.');
                             hasError = true;
+                        } else if (endpoint && !isValidUrl(endpoint.value.trim())) {
+                            showFieldError(endpoint, 'Enter a valid http or https URL.');
+                            hasError = true;
                         } else if (endpoint) {
                             clearFieldError(endpoint);
                         }
@@ -1209,11 +1254,18 @@
                             clearFieldError(interval);
                         }
                     }
+                    const conditionEnabled = document.getElementById('condition_enabled');
+                    const conditionInput = document.getElementById('condition');
+                    if (conditionEnabled?.checked && conditionInput && !conditionInput.value.trim()) {
+                        showFieldError(conditionInput, 'Enter a condition or disable conditional notifications.');
+                        hasError = true;
+                    } else if (conditionInput) {
+                        clearFieldError(conditionInput);
+                    }
                     if (hasError) {
-                        // Focus the first error
                         const firstError = form.querySelector('.input-error');
                         if (firstError) firstError.focus();
-                        event.preventDefault();
+                        e.preventDefault();
                         return false;
                     }
                 });

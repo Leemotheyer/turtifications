@@ -115,7 +115,9 @@
                                 <div class="flow-stat-actions">
                                     <a href="{{ url_for('notification_builder', edit=loop.index0) }}" class="btn-edit">Edit</a>
                                     <a href="{{ url_for('duplicate_flow_route', flow_name=flow_name) }}" class="btn-duplicate">Copy</a>
-                                    <a href="{{ url_for('delete_flow', index=loop.index0) }}" class="btn-delete" onclick="return confirm('Delete this flow?');">Delete</a>
+                                    <form method="POST" action="{{ url_for('delete_flow', index=loop.index0) }}" class="inline-form" onsubmit="return confirm('Delete this flow?');">
+                                        <button type="submit" class="btn-delete">Delete</button>
+                                    </form>
                                 </div>
                             </article>
                         {% endfor %}
