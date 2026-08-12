@@ -51,22 +51,26 @@ def get_flow_usage_from_logs(logs):
         timestamp = log.get('timestamp', '')
         
         # Parse different types of log messages
-        if 'Timer trigger: Sending notification for flow' in message:
+        if any(token in message for token in (
+            'Scheduled monitoring: Running check for flow',
+            'Timer trigger: Sending notification for flow',
+            'Timer triggered for flow',
+        )):
             flow_name = extract_flow_name_from_message(message)
             if flow_name:
                 update_flow_stats(flow_stats, flow_name, 'timer', timestamp)
-                
-        elif 'Change detected: Field' in message and 'in flow' in message:
+
+        elif 'Change detected: Field' in message and "in flow" in message:
             flow_name = extract_flow_name_from_message(message)
             if flow_name:
                 update_flow_stats(flow_stats, flow_name, 'change', timestamp)
-                
+
         elif 'Webhook received: Processing webhook for flow' in message:
             flow_name = extract_flow_name_from_message(message)
             if flow_name:
                 update_flow_stats(flow_stats, flow_name, 'webhook', timestamp)
-                
-        elif 'Test notification sent for' in message:
+
+        elif 'Test notification:' in message or 'Test notification sent for' in message:
             flow_name = extract_flow_name_from_message(message)
             if flow_name:
                 update_flow_stats(flow_stats, flow_name, 'test', timestamp)
@@ -161,7 +165,7 @@ def get_recent_flow_activity(hours=24):
                             recent_activity[flow_name] = []
                         
                         activity_type = 'unknown'
-                        if 'Timer trigger' in message:
+                        if 'Scheduled monitoring' in message or 'Timer trigger' in message:
                             activity_type = 'timer'
                         elif 'Change detected' in message:
                             activity_type = 'change'

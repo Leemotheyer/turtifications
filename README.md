@@ -77,7 +77,9 @@ curl -X POST http://localhost:5000/api/test \
   -d '{"message": "Hello from API!"}'
 ```
 
-Visit `http://localhost:5000/api/docs` for complete API documentation.
+Visit `http://localhost:5000/api/endpoints` for the API reference.
+
+Optional: set `API_KEY` in the environment to require the `X-API-Key` header on mutating API endpoints (`POST/PUT/DELETE /api/flows`, `POST /api/test`).
 
 ## 🚀 Deployment
 

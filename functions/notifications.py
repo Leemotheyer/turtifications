@@ -319,6 +319,8 @@ def check_endpoints():
     max_consecutive_errors = 5
     consecutive_errors = 0
     base_retry_delay = 1  # Start with 1 second delay
+    last_no_change_log = {}
+    no_change_log_interval = 3600  # Log unchanged values at most once per hour per flow
     
     while True:
         try:
@@ -331,7 +333,7 @@ def check_endpoints():
                     continue 
                 try:
                     # Skip webhook-triggered flows
-                    if flow['trigger_type'] == 'on_incoming':
+                    if flow['trigger_type'] in ('webhook', 'on_incoming'):
                         continue
                     
                     # Get API data if endpoint is configured
@@ -409,7 +411,13 @@ def check_endpoints():
                             else:
                                 log_notification(f"❌ Failed to send notification for flow '{flow['name']}', last_value not updated")
                         else:
-                            log_notification(f"🔄 No change detected: Field '{flow['field']}' value '{current_value}' unchanged in flow '{flow['name']}'")
+                            flow_name = flow['name']
+                            now = time.time()
+                            if now - last_no_change_log.get(flow_name, 0) >= no_change_log_interval:
+                                last_no_change_log[flow_name] = now
+                                log_notification(
+                                    f"🔄 No change detected: Field '{flow['field']}' value '{current_value}' unchanged in flow '{flow_name}'"
+                                )
                                 
                 except Exception as e:
                     log_notification(f"Error in flow {flow.get('name', 'unnamed')}: {str(e)}")

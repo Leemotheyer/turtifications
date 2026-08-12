@@ -473,10 +473,17 @@ def safe_eval_calculation(expression, variables):
         log_notification(f"Calculation error in '{expression}': {str(e)}")
         return f"CALC_ERROR({expression})"
 
-def evaluate_condition(condition, data):
+def evaluate_condition(condition, data, user_variables=None):
     """Safely evaluate a condition expression using AST instead of eval()"""
     if not condition or not condition.strip():
         return True
+
+    if user_variables is None:
+        try:
+            from functions.config import get_config
+            user_variables = get_config().get('user_variables', {})
+        except Exception:
+            user_variables = {}
     
     try:
         # Define safe operators

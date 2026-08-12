@@ -3,11 +3,13 @@ import secrets
 import requests
 import json
 import io
+import sys
 from datetime import datetime
 from functions.config import get_config, save_config, get_logs, clear_logs, get_log_stats
 from functions.utils import log_notification, get_notification_logs, format_message_template
 from functions.notifications import send_discord_notification, make_api_request
 from functions.embed_utils import validate_embed_config, create_discord_embed
+from functions.form_parsers import build_flow_from_form, parse_embed_config_from_form
 from functions.flow_templates import FLOW_TEMPLATES, get_template_categories, get_templates_by_category, get_template
 from functions.flow_stats import get_flow_statistics, get_flow_success_rate, get_recent_flow_activity, export_flow_config, import_flow_config, duplicate_flow
 from functions.version import get_version, get_version_info
@@ -219,96 +221,14 @@ def init_routes(app):
                     # No additional validation needed for webhook triggers
                     pass
 
-                # Parse embed configuration
-                embed_config = {}
-                if request.form.get('embed_enabled') == 'true':
-                    color_mode = request.form.get('embed_color_mode', 'static')
-                    embed_config = {
-                        'enabled': True,
-                        'title': request.form.get('embed_title', ''),
-                        'description': request.form.get('embed_description', ''),
-                        'url': request.form.get('embed_url', ''),
-                        'color_mode': color_mode,
-                        'timestamp': request.form.get('embed_timestamp', 'true') == 'true',
-                        'footer_text': request.form.get('embed_footer_text', ''),
-                        'footer_icon': request.form.get('embed_footer_icon', ''),
-                        'author_name': request.form.get('embed_author_name', ''),
-                        'author_icon': request.form.get('embed_author_icon', ''),
-                        'author_url': request.form.get('embed_author_url', ''),
-                        'thumbnail_url': request.form.get('embed_thumbnail_url', ''),
-                        'image_url': request.form.get('embed_image_url', ''),
-                        'fields': [],
-                        'dynamic_fields': []
-                    }
-                    if color_mode == 'static':
-                        embed_config['color'] = request.form.get('embed_color', '')
-                    elif color_mode == 'if':
-                        embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
-                        tests = request.form.getlist('embed_color_if_test[]')
-                        colors = request.form.getlist('embed_color_if_color[]')
-                        rules = []
-                        for t, c in zip(tests, colors):
-                            if t and c:
-                                rules.append({'test': t, 'color': c})
-                        embed_config['color_rules'] = rules
-                    elif color_mode == 'gradient':
-                        embed_config['color_monitor'] = request.form.get('embed_color_monitor', '')
-                        embed_config['gradient'] = {
-                            'start_value': request.form.get('embed_gradient_start_value', ''),
-                            'start_color': request.form.get('embed_gradient_start_color', '#00ff00'),
-                            'end_value': request.form.get('embed_gradient_end_value', ''),
-                            'end_color': request.form.get('embed_gradient_end_color', '#ff0000'),
-                        }
-                    
+                updated_flow = build_flow_from_form(request.form, editing_flow)
 
-                
-                # Parse advanced API settings
-                api_headers = []
-                header_keys = request.form.getlist('header_key[]')
-                header_values = request.form.getlist('header_value[]')
-                for k, v in zip(header_keys, header_values):
-                    if k:
-                        api_headers.append({'key': k, 'value': v})
-                api_request_body = request.form.get('api_request_body', '')
-
-                updated_flow = {
-                    'name': request.form['flow_name'],
-                    'trigger_type': trigger_type,
-                    'webhook_url': webhook_url,  # Store empty string if not provided, will use default
-                    'webhook_name': request.form.get('webhook_name', '').strip(),  # Allow empty
-                    'webhook_avatar': request.form.get('webhook_avatar', '').strip(),  # Allow empty
-                    'message_template': request.form.get('message_template', ''),
-                    'active': request.form.get('active', 'false') == 'true',
-                    'endpoint': request.form.get('endpoint', ''),
-                    'field': request.form.get('field', ''),
-                    'interval': int(request.form.get('interval', 5)) if trigger_type == 'timer' else None,
-                    'accept_webhooks': accept_webhooks,
-                    'embed_config': embed_config,
-                    'category': request.form.get('category', 'General'),
-                    'condition_enabled': request.form.get('condition_enabled', 'false') == 'true',
-                    'condition': request.form.get('condition', ''),
-                    'api_headers': api_headers,
-                    'api_request_body': api_request_body,
-                }
-                
-                # Handle webhook_secret logic
-                if accept_webhooks and require_webhook_secret:
-                    if editing_flow and editing_flow.get('webhook_secret'):
-                        updated_flow['webhook_secret'] = editing_flow['webhook_secret']
-                    else:
-                        updated_flow['webhook_secret'] = secrets.token_urlsafe(16)
-                # If not required, remove any existing secret
-                elif 'webhook_secret' in updated_flow:
-                    del updated_flow['webhook_secret']
-                
-                # Preserve existing tracking data if editing
-                if editing_flow:
-                    if 'last_value' in editing_flow:
-                        updated_flow['last_value'] = editing_flow['last_value']
-                    if 'last_run' in editing_flow:
-                        updated_flow['last_run'] = editing_flow['last_run']
-                    if 'last_data' in editing_flow:
-                        updated_flow['last_data'] = editing_flow['last_data']
+                embed_config = updated_flow.get('embed_config', {})
+                if embed_config.get('enabled'):
+                    errors = validate_embed_config(embed_config)
+                    if errors:
+                        flash('; '.join(errors), 'error')
+                        return redirect(url_for('notification_builder'))
                 
                 # Initialize flows list if it doesn't exist
                 if 'notification_flows' not in config:
@@ -337,10 +257,13 @@ def init_routes(app):
         if template_name:
             template_data = get_template(template_name)
         
+        prefill_flow = editing_flow if edit_index is not None else (template_data or {})
+
         return render_template('builder.html', 
                              webhook_url=config.get('discord_webhook', ''),
                              flows=config.get('notification_flows', []),
                              editing_flow=editing_flow,
+                             prefill_flow=prefill_flow,
                              edit_index=edit_index,
                              config=config,
                              template_data=template_data,
@@ -397,6 +320,7 @@ def init_routes(app):
     @app.route('/test_flow', methods=['POST'])
     def test_flow():
         try:
+            config = get_config()
             # Parse embed configuration for test
             embed_config = {}
             if request.form.get('embed_enabled') == 'true':

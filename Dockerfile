@@ -34,4 +34,7 @@ VOLUME ["/app/data"]
 EXPOSE 5000
 
 # Run the application
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health', timeout=4)"
+
 CMD ["python", "app.py"] 
