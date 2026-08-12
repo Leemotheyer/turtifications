@@ -98,11 +98,11 @@ docker run -p 5000:5000 -v $(pwd)/data:/app/data ghcr.io/leemotheyer/turtificati
 
 **Development (development branch)**
 
-Published as a separate package so stable releases are not overwritten:
+Same package, separate tag — stable `latest` is not overwritten:
 
 ```bash
-docker pull ghcr.io/leemotheyer/turtifications-development:development
-docker run -p 5000:5000 -v $(pwd)/data:/app/data ghcr.io/leemotheyer/turtifications-development:development
+docker pull ghcr.io/leemotheyer/turtifications:development
+docker run -p 5000:5000 -v $(pwd)/data:/app/data ghcr.io/leemotheyer/turtifications:development
 ```
 
 **Build locally**

@@ -8,6 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -20,15 +21,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Determine image name
-      id: image
-      run: |
-        if [[ "${GITHUB_REF}" == "refs/heads/development" ]] || [[ "${GITHUB_BASE_REF}" == "development" ]]; then
-          echo "name=${GITHUB_REPOSITORY}-development" >> "$GITHUB_OUTPUT"
-        else
-          echo "name=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
@@ -40,7 +32,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
           type=ref,event=tag
