@@ -12,7 +12,7 @@
         <div class="builder-left">
             <section class="panel builder">
                 <div class="panel-header builder-header">
-                    <h2 class="panel-title">{% if editing_flow %}Edit flow{% else %}New flow{% endif %}</h2>
+                    <h2 class="panel-title">{% if edit_index is not none %}Edit flow{% else %}New flow{% endif %}</h2>
                     <div class="builder-actions">
                         <a href="{{ url_for('show_templates') }}" class="btn-templates">Templates</a>
                         <a href="{{ url_for('show_flow_stats') }}" class="btn-stats">Statistics</a>
@@ -30,6 +30,9 @@
                 {% endwith %}
                 
                 <form method="post">
+                    {% set pf = prefill_flow if prefill_flow is defined else {} %}
+                    {% set tt = pf.get('trigger_type', 'on_change') %}
+                    {% set ec = pf.get('embed_config', {}) %}
                     <section class="builder-section">
                         <h3>Basic Information</h3>
                         <div class="form-group">
@@ -41,23 +44,23 @@
                         <div class="form-group">
                             <label for="flow_name">Flow Name:</label>
                             <input type="text" id="flow_name" name="flow_name" 
-                                   value="{{ editing_flow.name if editing_flow else (template_data.name if template_data else '') }}" required>
+                                   value="{{ pf.get('name', '') }}" required>
                         </div>
                         <div class="form-group">
                             <label for="category">Category:</label>
                             <select id="category" name="category">
-                                <option value="General" {% if editing_flow and editing_flow.category == 'General' %}selected{% endif %}>General</option>
-                                <option value="Media" {% if editing_flow and editing_flow.category == 'Media' %}selected{% endif %}>Media</option>
-                                <option value="System" {% if editing_flow and editing_flow.category == 'System' %}selected{% endif %}>System</option>
-                                <option value="Monitoring" {% if editing_flow and editing_flow.category == 'Monitoring' %}selected{% endif %}>Monitoring</option>
-                                <option value="Reports" {% if editing_flow and editing_flow.category == 'Reports' %}selected{% endif %}>Reports</option>
-                                <option value="Alerts" {% if editing_flow and editing_flow.category == 'Alerts' %}selected{% endif %}>Alerts</option>
+                                <option value="General" {% if pf.get('category', 'General') == 'General' %}selected{% endif %}>General</option>
+                                <option value="Media" {% if pf.get('category') == 'Media' %}selected{% endif %}>Media</option>
+                                <option value="System" {% if pf.get('category') == 'System' %}selected{% endif %}>System</option>
+                                <option value="Monitoring" {% if pf.get('category') == 'Monitoring' %}selected{% endif %}>Monitoring</option>
+                                <option value="Reports" {% if pf.get('category') == 'Reports' %}selected{% endif %}>Reports</option>
+                                <option value="Alerts" {% if pf.get('category') == 'Alerts' %}selected{% endif %}>Alerts</option>
                             </select>
                             <small>Organize your flows with categories</small>
                         </div>
                         <div class="form-group">
                             <label for="active">Active:</label>
-                            <input type="checkbox" id="active" name="active" value="true" {% if editing_flow and editing_flow.active %}checked{% endif %}>
+                            <input type="checkbox" id="active" name="active" value="true" {% if pf.get('active', True) %}checked{% endif %}>
                             <small>Enable or disable this flow</small>
                         </div>
                     </section>
@@ -69,12 +72,12 @@
                         <div class="form-group">
                             <label for="endpoint">API Endpoint:</label>
                             <input type="url" id="endpoint" name="endpoint" 
-                                   value="{{ editing_flow.endpoint if editing_flow else '' }}"
+                                   value="{{ pf.get('endpoint', '') }}"
                                    placeholder="https://api.example.com/data">
                             <small>Optional for timer triggers, required for change detection</small>
                             <label for="field">Field to Use:</label>
                             <input type="text" id="field" name="field" 
-                                   value="{{ editing_flow.field if editing_flow else '' }}"
+                                   value="{{ pf.get('field', '') }}"
                                    placeholder="result['0']['web_title']">
                             <small>Field to monitor for changes. Supports bracket notation like result['0']['web_title'] (required for change detection)</small>
                         </div>
@@ -106,7 +109,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="api_request_body">Request Body:</label>
-                                <textarea id="api_request_body" name="api_request_body" rows="4" placeholder='{"key": "value"} or GraphQL query'>{{ editing_flow.api_request_body if editing_flow else '' }}</textarea>
+                                <textarea id="api_request_body" name="api_request_body" rows="4" placeholder='{"key": "value"} or GraphQL query'>{{ pf.get('api_request_body', '') }}</textarea>
                                 <small>
                                     <strong>Optional.</strong> If provided, a POST request will be made with this body. Otherwise, a GET request is used.
                                     <br><br>
@@ -125,19 +128,19 @@
                             <div class="radio-group">
                                 <label>
                                     <input type="radio" name="trigger_type" value="timer"
-                                           {% if editing_flow and editing_flow.trigger_type == 'timer' or (template_data and template_data.trigger_type == 'timer') %}checked{% endif %}> 
+                                           {% if tt == 'timer' %}checked{% endif %}> 
                                     <strong>Scheduled Monitoring</strong>
                                     <small>Regular checks at fixed intervals (good for reports, health checks, periodic updates)</small>
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="on_change"
-                                           {% if (not editing_flow and not template_data) or (editing_flow and editing_flow.trigger_type == 'on_change') or (template_data and template_data.trigger_type == 'on_change') %}checked{% endif %}> 
+                                           {% if tt == 'on_change' %}checked{% endif %}> 
                                     <strong>Change Detection</strong>
                                     <small>Immediate alerts when monitored values change (good for status changes, alerts, events)</small> 
                                 </label>
                                 <label>
                                     <input type="radio" name="trigger_type" value="webhook"
-                                           {% if editing_flow and editing_flow.trigger_type == 'webhook' %}checked{% endif %}> 
+                                           {% if tt == 'webhook' %}checked{% endif %}> 
                                     <strong>Incoming Webhook</strong>
                                     <small>Responds to incoming webhook calls from external services</small>
                                 </label>
@@ -181,7 +184,7 @@
                         <div class="form-group" id="timer-options" style="display: none;">
                             <label for="interval">Interval (minutes):</label>
                             <input type="number" id="interval" name="interval" min="1" 
-                                   value="{{ editing_flow.interval if editing_flow else '5' }}" required>
+                                   value="{{ pf.get('interval', 5) }}" required>
                         </div>
                         <div class="form-group">
                             <label>
@@ -226,18 +229,18 @@
                         <div class="form-group">
                             <label for="webhook_name">Webhook Name:</label>
                             <input type="text" id="webhook_name" name="webhook_name" 
-                                   value="{{ editing_flow.webhook_name if editing_flow else (template_data.webhook_name if template_data else '') }}"
+                                   value="{{ pf.get('webhook_name', '') }}"
                                    placeholder="{{ config.default_webhook_name if config.default_webhook_name else 'Notification Bot' }}">
                         </div>
                         <div class="form-group">
                             <label for="webhook_avatar">Webhook Avatar URL:</label>
                             <input type="url" id="webhook_avatar" name="webhook_avatar" 
-                                   value="{{ editing_flow.webhook_avatar if editing_flow else '' }}"
+                                   value="{{ pf.get('webhook_avatar', '') }}"
                                    placeholder="{{ config.default_webhook_avatar if config.default_webhook_avatar else 'https://example.com/avatar.png' }}">
                         </div>
                         <div class="form-group">
                             <label for="message_template">Message Template:</label>
-                            <textarea id="message_template" name="message_template" rows="3">{{ editing_flow.message_template if editing_flow else (template_data.message_template if template_data else '') }}</textarea>
+                            <textarea id="message_template" name="message_template" rows="3">{{ pf.get('message_template', '') }}</textarea>
                             <small>
                                 Available variables: 
                                 {value} - Current field value, 
@@ -275,7 +278,7 @@
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" name="embed_enabled" id="embed_enabled" value="true"
-                                       {% if editing_flow and editing_flow.embed_config and editing_flow.embed_config.enabled %}checked{% endif %}> 
+                                       {% if ec.get('enabled') %}checked{% endif %}> 
                                 Enable Discord Embed
                             </label>
                             <small>Embeds provide rich formatting with colors, images, fields, and more</small>
@@ -442,13 +445,26 @@
                             <div class="form-group">
                                 <label for="embed_image_url">Main Image URL:</label>
                                 <input type="url" id="embed_image_url" name="embed_image_url" 
-                                       value="{{ editing_flow.embed_config.image_url if editing_flow and editing_flow.embed_config else '' }}"
+                                       value="{{ ec.get('image_url', '') }}"
                                        placeholder="https://example.com/image.png">
                                 <small>Large image at the bottom of the embed</small>
                             </div>
+
+                            <h4>Embed Fields</h4>
+                            <p class="page-description" style="margin-bottom: 0.75rem;">Add optional name/value rows shown inside the Discord embed.</p>
+                            <div id="embed-fields-list" class="field-group">
+                                {% for field in ec.get('fields', []) %}
+                                <div class="field-row embed-field-row">
+                                    <input type="text" name="embed_field_name[]" value="{{ field.name }}" placeholder="Field name">
+                                    <textarea name="embed_field_value[]" rows="2" placeholder="Field value">{{ field.value }}</textarea>
+                                    <label><input type="checkbox" name="embed_field_inline_{{ loop.index0 }}" value="true" {% if field.inline %}checked{% endif %}> Inline</label>
+                                    <button type="button" class="btn-remove-embed-field btn-remove">Remove</button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" id="add-embed-field" class="btn-secondary">Add embed field</button>
                             
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
-                            <small>💡 <strong>Tip:</strong> Use the embed title, description, and other fields above to create rich notifications. Template variables like {time}, {value}, and {data} work in all embed fields! Calculations like [{value} - {old_value}] also work!</small>
+                            <small>💡 Template variables like {time}, {value}, and {data} work in all embed fields.</small>
                         </div>
                     </section>
                     
@@ -524,7 +540,10 @@
                     {% if flow.trigger_type == 'webhook' %}
                     <p><strong>Webhook URL:</strong> /api/webhook/{{ flow.name }}</p>
                     {% if flow.webhook_secret %}
-                    <p><strong>Webhook Secret:</strong> {{ flow.webhook_secret }}</p>
+                    <p><strong>Webhook Secret:</strong>
+                        <code class="secret-value" data-secret="{{ flow.webhook_secret }}">••••••••</code>
+                        <button type="button" class="btn-secondary btn-reveal-secret" style="padding:0.25rem 0.5rem; font-size:0.8rem;">Reveal</button>
+                    </p>
                     {% endif %}
                     {% endif %}
                     {% if flow.webhook_name %}
@@ -735,8 +754,52 @@
             }
             
             function loadExistingFields() {
-                // No longer needed - removed static/dynamic field functionality
+                const list = document.getElementById('embed-fields-list');
+                const addBtn = document.getElementById('add-embed-field');
+                if (!list || !addBtn) return;
+
+                let embedFieldIndex = list.querySelectorAll('.embed-field-row').length;
+
+                function addEmbedFieldRow(name = '', value = '', inline = false) {
+                    const index = embedFieldIndex++;
+                    const row = document.createElement('div');
+                    row.className = 'field-row embed-field-row';
+                    row.innerHTML = `
+                        <input type="text" name="embed_field_name[]" placeholder="Field name" value="${name.replace(/"/g, '&quot;')}">
+                        <textarea name="embed_field_value[]" rows="2" placeholder="Field value">${value}</textarea>
+                        <label><input type="checkbox" name="embed_field_inline_${index}" value="true" ${inline ? 'checked' : ''}> Inline</label>
+                        <button type="button" class="btn-remove-embed-field btn-remove">Remove</button>
+                    `;
+                    list.appendChild(row);
+                }
+
+                addBtn.addEventListener('click', function() {
+                    addEmbedFieldRow();
+                });
+
+                list.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('btn-remove-embed-field')) {
+                        e.target.closest('.embed-field-row')?.remove();
+                    }
+                });
             }
+
+            document.querySelectorAll('.btn-reveal-secret').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const code = this.previousElementSibling;
+                    if (!code || !code.dataset.secret) return;
+                    const revealed = code.dataset.revealed === 'true';
+                    if (revealed) {
+                        code.textContent = '••••••••';
+                        code.dataset.revealed = 'false';
+                        this.textContent = 'Reveal';
+                    } else {
+                        code.textContent = code.dataset.secret;
+                        code.dataset.revealed = 'true';
+                        this.textContent = 'Hide';
+                    }
+                });
+            });
         
             function updateTriggerOptions() {
                 const selectedTrigger = document.querySelector('input[name="trigger_type"]:checked')?.value || 'on_change';
