@@ -16,11 +16,16 @@ def init_routes(app):
     """Initialize all Flask routes"""
     
     @app.context_processor
-    def inject_version():
-        """Inject version information into all templates"""
+    def inject_globals():
+        """Inject shared template context"""
+        config = get_config()
+        flows = config.get('notification_flows', [])
         return {
             'app_version': get_version(),
-            'version_info': get_version_info()
+            'version_info': get_version_info(),
+            'is_configured': bool(config.get('discord_webhook')),
+            'active_flow_count': len([f for f in flows if f.get('active')]),
+            'total_flow_count': len(flows),
         }
     
     @app.template_filter('datetimeformat')
