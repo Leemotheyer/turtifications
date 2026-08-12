@@ -107,9 +107,7 @@ def init_routes(app):
                     if k:
                         user_variables[k] = v
                 # Validate inputs
-                if not webhook_url:
-                    flash('Discord webhook URL is required', 'error')
-                    return redirect(url_for('configure'))
+                # Default webhook is optional; flows may define their own URLs
                 if check_interval < 1 or check_interval > 3600:
                     flash('Check interval must be between 1 and 3600 seconds', 'error')
                     return redirect(url_for('configure'))
@@ -307,15 +305,15 @@ def init_routes(app):
             log_notification(f"Toggle flow error: {str(e)}")
             return jsonify({'success': False, 'error': 'Server error'}), 500
 
-    @app.route('/delete_flow/<int:index>')
+    @app.route('/delete_flow/<int:index>', methods=['POST'])
     def delete_flow(index):
         config = get_config()
         if 0 <= index < len(config.get('notification_flows', [])):
             config['notification_flows'].pop(index)
             save_config(config)
             flash('Notification flow deleted', 'success')
-        # Redirect to the referring page, or statistics if not available
-        return redirect(request.referrer)
+        referrer = request.referrer
+        return redirect(referrer or url_for('notification_builder'))
 
     @app.route('/test_flow', methods=['POST'])
     def test_flow():

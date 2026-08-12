@@ -688,6 +688,74 @@ section > h3:first-child {
     margin-top: 1.5rem;
 }
 
+.builder-collapsible {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-raised);
+}
+
+.builder-collapsible > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1rem 1.25rem;
+}
+
+.builder-collapsible > summary::-webkit-details-marker {
+    display: none;
+}
+
+.builder-collapsible > summary h3 {
+    margin: 0;
+    padding: 0;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.builder-collapsible > summary::after {
+    content: '▾';
+    float: right;
+    color: var(--text-secondary);
+    transition: transform var(--transition-fast);
+}
+
+.builder-collapsible:not([open]) > summary::after {
+    transform: rotate(-90deg);
+}
+
+.builder-collapsible-body {
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.flows-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.flow-search label,
+.flows-toolbar .category-filter label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.inline-form {
+    display: inline;
+    margin: 0;
+}
+
+.inline-form .btn-delete {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+}
+
 .saved-flows {
     position: relative;
 }
@@ -2596,6 +2664,11 @@ a.btn-secondary:hover {
         flex-direction: row;
         align-items: center;
         gap: 0.75rem;
+    }
+
+    .flows-toolbar {
+        grid-template-columns: 1fr auto;
+        align-items: end;
     }
 
     .category-filter select {
