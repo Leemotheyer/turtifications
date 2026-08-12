@@ -23,4 +23,6 @@ jobs:
           pip install -r requirements.txt pytest
 
       - name: Run tests
-        run: python -m pytest test/ -q --tb=short
+        run: |
+          python -c "from functions.config import initialize_files; initialize_files()"
+          python -m pytest test/ -q --tb=short
