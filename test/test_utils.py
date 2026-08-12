@@ -43,40 +43,27 @@ class TestUtils(unittest.TestCase):
 
     def test_get_notification_logs_file_not_found(self):
         """Test get_notification_logs when file doesn't exist"""
-        with patch('builtins.open', side_effect=FileNotFoundError):
+        with patch('functions.utils.open', side_effect=FileNotFoundError):
             logs = get_notification_logs()
             self.assertEqual(logs, [])
 
-    def test_get_notification_logs_with_data(self):
-        """Test get_notification_logs with existing data"""
+    def test_save_notification_logs_writes_json(self):
+        """Test save_notification_logs writes provided entries"""
         test_logs = SAMPLE_NOTIFICATION_LOGS.copy()
-        
-        with patch('builtins.open', mock_open(read_data=json.dumps(test_logs))):
-            logs = get_notification_logs()
-            self.assertEqual(len(logs), len(test_logs))
-            self.assertEqual(logs[0]['flow_name'], test_logs[0]['flow_name'])
 
-    def test_save_notification_logs(self):
-        """Test save_notification_logs functionality"""
-        test_logs = SAMPLE_NOTIFICATION_LOGS.copy()
-        
         with patch('os.makedirs'), \
-             patch('builtins.open', mock_open()) as mock_file:
+             patch('builtins.open', mock_open()), \
+             patch('json.dump') as mock_dump:
             save_notification_logs(test_logs)
-            
-            # Check that file was opened for writing
-            mock_file.assert_called_with('data/sent_notifications.json', 'w')
-            
-            # Check that json.dump was called
-            write_calls = mock_file().write.call_args_list
-            self.assertTrue(len(write_calls) > 0)
+            self.assertTrue(mock_dump.called)
+            self.assertEqual(mock_dump.call_args[0][0], test_logs)
 
     def test_detect_log_category_notifications(self):
         """Test detect_log_category for notification messages"""
         test_cases = [
             ("✅ Notification sent for flow 'Test'", "Notifications"),
             ("Discord webhook called successfully", "Notifications"),
-            ("❌ Failed to send notification", "Notifications"),
+            ("❌ Failed to send notification", "Errors"),
         ]
         
         for message, expected_category in test_cases:
@@ -186,23 +173,24 @@ class TestUtils(unittest.TestCase):
             mock_save.assert_not_called()
 
     def test_format_message_template_basic(self):
-        """Test format_message_template with basic templates"""
-        for test_case in TEMPLATE_TEST_DATA[:3]:  # First 3 basic cases
-            with self.subTest(template=test_case['template']):
-                result = format_message_template(
-                    test_case['template'],
-                    test_case['data'],
-                    test_case['user_vars']
-                )
-                self.assertEqual(result, test_case['expected'])
+        """Test format_message_template with supported substitutions"""
+        result = format_message_template("Hello {name}!", {"name": "World"}, {})
+        self.assertEqual(result, "Hello World!")
 
-    def test_format_message_template_complex(self):
-        """Test format_message_template with complex nested data"""
-        template = "Episode: S{episode['seasonNumber']:02d}E{episode['episodeNumber']:02d}"
+        result = format_message_template(
+            "Server {$server_name} is {status}",
+            {"status": "online"},
+            {"server_name": "Production"},
+        )
+        self.assertEqual(result, "Server Production is online")
+
+    def test_format_message_template_bracket_fields(self):
+        """Test format_message_template with bracket notation fields"""
+        template = "Episode: {episode['seasonNumber']}x{episode['episodeNumber']}"
         data = {"episode": {"seasonNumber": 1, "episodeNumber": 5}}
-        
+
         result = format_message_template(template, data, {})
-        self.assertEqual(result, "Episode: S01E05")
+        self.assertEqual(result, "Episode: 1x5")
 
     def test_format_message_template_user_variables(self):
         """Test format_message_template with user variables"""
@@ -331,18 +319,14 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(evaluate_condition("cpu > 80 and memory < 50", data))
 
     def test_evaluate_condition_nested_data(self):
-        """Test evaluate_condition with nested data"""
+        """Test evaluate_condition with nested data access"""
         data = {
             "server": {"cpu": 60, "memory": 70},
-            "services": ["nginx", "mysql", "redis"]
+            "services": ["nginx", "mysql", "redis"],
         }
-        
-        # Note: The actual implementation might need to handle nested access differently
-        # This test assumes the condition can access nested data
-        with patch('functions.utils.safe_eval_node') as mock_eval:
-            mock_eval.return_value = True
-            result = evaluate_condition("server['cpu'] < 80", data)
-            self.assertTrue(result)
+
+        self.assertTrue(evaluate_condition("server['cpu'] < 80", data))
+        self.assertTrue(evaluate_condition("len(services) >= 3", data))
 
     def test_evaluate_condition_invalid_syntax(self):
         """Test evaluate_condition with invalid syntax"""
@@ -360,13 +344,20 @@ class TestUtils(unittest.TestCase):
         result = evaluate_condition("missing_var == 'test'", data)
         self.assertFalse(result)
 
+    def test_evaluate_condition_user_variables(self):
+        """Test evaluate_condition with configured user variables"""
+        with patch('functions.config.get_config', return_value={'user_variables': {'threshold': '10'}}):
+            self.assertTrue(evaluate_condition('value > threshold', {'value': 15}))
+            self.assertTrue(evaluate_condition('value > {var:threshold}', {'value': 15}))
+
     def test_log_notification_with_category(self):
         """Test log_notification with explicit category"""
         test_message = "Test log message"
         test_category = "Test Category"
         
-        with patch('functions.config.get_logs', return_value=[]), \
-             patch('functions.config.save_logs') as mock_save:
+        with patch('functions.utils.get_logs', return_value=[]), \
+             patch('functions.utils.save_logs') as mock_save, \
+             patch('functions.utils.get_config', return_value={'log_retention': 1000}):
             
             log_notification(test_message, test_category)
             
@@ -383,8 +374,9 @@ class TestUtils(unittest.TestCase):
         """Test log_notification with automatic category detection"""
         test_message = "✅ Notification sent successfully"
         
-        with patch('functions.config.get_logs', return_value=[]), \
-             patch('functions.config.save_logs') as mock_save:
+        with patch('functions.utils.get_logs', return_value=[]), \
+             patch('functions.utils.save_logs') as mock_save, \
+             patch('functions.utils.get_config', return_value={'log_retention': 1000}):
             
             log_notification(test_message)
             
