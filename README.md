@@ -88,8 +88,26 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
 ### Docker
+
+**Stable (main branch)**
+
 ```bash
-# Build and run with Docker
+docker pull ghcr.io/leemotheyer/turtifications:latest
+docker run -p 5000:5000 -v $(pwd)/data:/app/data ghcr.io/leemotheyer/turtifications:latest
+```
+
+**Development (development branch)**
+
+Published as a separate package so stable releases are not overwritten:
+
+```bash
+docker pull ghcr.io/leemotheyer/turtifications-development:development
+docker run -p 5000:5000 -v $(pwd)/data:/app/data ghcr.io/leemotheyer/turtifications-development:development
+```
+
+**Build locally**
+
+```bash
 docker build -t turtifications .
 docker run -p 5000:5000 -v $(pwd)/data:/app/data turtifications
 ```
