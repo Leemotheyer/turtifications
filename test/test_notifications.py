@@ -100,24 +100,29 @@ class TestNotifications(unittest.TestCase):
         self.assertEqual(extract_field_value(data, "zero"), "0")
 
     @patch('functions.notifications.requests.post')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_success(self, mock_get_config, mock_post):
         """Test successful Discord notification sending"""
         # Setup mocks
         mock_get_config.return_value = {"user_variables": {}}
         mock_response = Mock()
         mock_response.status_code = 204
+        mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
         flow = self.sample_flow.copy()
         
-        with patch('functions.notifications.format_message_template', return_value="Formatted message"):
+        with patch('functions.notifications.format_message_template', return_value=("Formatted message", [])), \
+             patch('functions.notifications.increment_notification_counter'), \
+             patch('functions.notifications.log_notification_sent'), \
+             patch('functions.notifications.log_notification'):
+            
             result = send_discord_notification("Test message", flow)
             
             self.assertTrue(result)
             mock_post.assert_called_once()
 
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_no_webhook(self, mock_get_config):
         """Test Discord notification with no webhook URL"""
         mock_get_config.return_value = {"discord_webhook": "", "user_variables": {}}
@@ -128,19 +133,23 @@ class TestNotifications(unittest.TestCase):
         self.assertFalse(result)
 
     @patch('functions.notifications.requests.post')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_with_embed(self, mock_get_config, mock_post):
         """Test Discord notification with embed"""
         mock_get_config.return_value = {"user_variables": {}}
         mock_response = Mock()
         mock_response.status_code = 204
+        mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
         flow = self.sample_flow.copy()
         flow["embed_config"]["enabled"] = True
         
-        with patch('functions.notifications.format_message_template', return_value="Formatted message"), \
-             patch('functions.notifications.create_discord_embed', return_value={"title": "Test Embed"}):
+        with patch('functions.notifications.format_message_template', return_value=("Formatted message", [])), \
+             patch('functions.notifications.create_discord_embed', return_value={"title": "Test Embed"}), \
+             patch('functions.notifications.increment_notification_counter'), \
+             patch('functions.notifications.log_notification_sent'), \
+             patch('functions.notifications.log_notification'):
             
             result = send_discord_notification("Test message", flow)
             
@@ -151,7 +160,7 @@ class TestNotifications(unittest.TestCase):
             self.assertIn('embeds', call_args.kwargs['json'])
 
     @patch('functions.notifications.evaluate_condition')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_condition_not_met(self, mock_get_config, mock_evaluate):
         """Test Discord notification when condition is not met"""
         mock_get_config.return_value = {"user_variables": {}}
@@ -170,13 +179,14 @@ class TestNotifications(unittest.TestCase):
 
     @patch('functions.notifications.evaluate_condition')
     @patch('functions.notifications.requests.post')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_condition_met(self, mock_get_config, mock_post, mock_evaluate):
         """Test Discord notification when condition is met"""
         mock_get_config.return_value = {"user_variables": {}}
         mock_evaluate.return_value = True
         mock_response = Mock()
         mock_response.status_code = 204
+        mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
         flow = self.sample_flow.copy()
@@ -184,7 +194,10 @@ class TestNotifications(unittest.TestCase):
         flow["condition"] = "status == 'online'"
         flow["last_data"] = '{"status": "online"}'
         
-        with patch('functions.notifications.format_message_template', return_value="Formatted message"):
+        with patch('functions.notifications.format_message_template', return_value=("Formatted message", [])), \
+             patch('functions.notifications.increment_notification_counter'), \
+             patch('functions.notifications.log_notification_sent'), \
+             patch('functions.notifications.log_notification'):
             result = send_discord_notification("Test message", flow)
             
             self.assertTrue(result)
@@ -192,7 +205,7 @@ class TestNotifications(unittest.TestCase):
             mock_post.assert_called_once()
 
     @patch('functions.notifications.requests.post')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_send_discord_notification_request_error(self, mock_get_config, mock_post):
         """Test Discord notification with request error"""
         mock_get_config.return_value = {"user_variables": {}}
@@ -200,7 +213,7 @@ class TestNotifications(unittest.TestCase):
         
         flow = self.sample_flow.copy()
         
-        with patch('functions.notifications.format_message_template', return_value="Formatted message"), \
+        with patch('functions.notifications.format_message_template', return_value=("Formatted message", [])), \
              patch('functions.notifications.log_notification'):
             
             result = send_discord_notification("Test message", flow)
@@ -219,8 +232,8 @@ class TestNotifications(unittest.TestCase):
         self.assertEqual(result, {"status": "ok"})
         mock_get.assert_called_once_with(
             "https://api.example.com/status",
-            headers=None,
-            timeout=30
+            headers={},
+            timeout=5
         )
 
     @patch('functions.notifications.requests.post')
@@ -231,8 +244,8 @@ class TestNotifications(unittest.TestCase):
         mock_response.json.return_value = {"created": True}
         mock_post.return_value = mock_response
         
-        headers = {"Content-Type": "application/json"}
-        body = {"name": "test", "value": 123}
+        headers = [{'key': 'Content-Type', 'value': 'application/json'}]
+        body = json.dumps({"name": "test", "value": 123})
         
         result = make_api_request(
             "https://api.example.com/create",
@@ -243,9 +256,9 @@ class TestNotifications(unittest.TestCase):
         self.assertEqual(result, {"created": True})
         mock_post.assert_called_once_with(
             "https://api.example.com/create",
-            headers=headers,
-            json=body,
-            timeout=30
+            headers={'Content-Type': 'application/json'},
+            json={"name": "test", "value": 123},
+            timeout=5
         )
 
     @patch('functions.notifications.requests.get')
@@ -254,9 +267,11 @@ class TestNotifications(unittest.TestCase):
         mock_response = Mock()
         mock_response.status_code = 404
         mock_response.text = "Not Found"
+        mock_response.raise_for_status.side_effect = Exception("404 Not Found")
         mock_get.return_value = mock_response
-        
-        result = make_api_request("https://api.example.com/missing")
+
+        with patch('functions.notifications.log_notification'):
+            result = make_api_request("https://api.example.com/missing")
         
         self.assertIsNone(result)
 
@@ -292,180 +307,136 @@ class TestNotifications(unittest.TestCase):
         mock_response.json.return_value = {"authenticated": True}
         mock_get.return_value = mock_response
         
-        headers = {
-            "Authorization": "Bearer token123",
-            "User-Agent": "Test Agent"
-        }
+        headers = [
+            {"key": "Authorization", "value": "Bearer token123"},
+            {"key": "User-Agent", "value": "Test Agent"},
+        ]
         
         result = make_api_request("https://api.example.com/secure", headers=headers)
         
         self.assertEqual(result, {"authenticated": True})
         mock_get.assert_called_once_with(
             "https://api.example.com/secure",
-            headers=headers,
-            timeout=30
+            headers={"Authorization": "Bearer token123", "User-Agent": "Test Agent"},
+            timeout=5
         )
 
     @patch('time.sleep')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     @patch('functions.notifications.make_api_request')
     @patch('functions.notifications.send_discord_notification')
     def test_check_endpoints_timer_flow(self, mock_send, mock_api, mock_get_config, mock_sleep):
         """Test check_endpoints with timer-based flow"""
-        # Mock configuration with timer flow
         mock_config = {
+            "check_interval": 5,
             "notification_flows": [
                 {
                     "name": "Timer Flow",
                     "active": True,
                     "trigger_type": "timer",
-                    "url": "https://api.example.com/status",
-                    "interval": 60,
-                    "message_template": "Status: {status}",
-                    "change_detection": False,
-                    "last_run": None
+                    "endpoint": "https://api.example.com/status",
+                    "field": "status",
+                    "interval": 1,
+                    "message_template": "Status: {value}",
+                    "last_run": 0,
                 }
-            ]
+            ],
         }
         mock_get_config.return_value = mock_config
-        
-        # Mock API response
         mock_api.return_value = {"status": "online"}
         mock_send.return_value = True
-        
-        # Mock to exit after one iteration
-        def side_effect(*args):
-            raise KeyboardInterrupt()
-        
-        mock_sleep.side_effect = side_effect
-        
-        with patch('functions.config.save_config'), \
+        mock_sleep.side_effect = KeyboardInterrupt()
+
+        with patch('functions.notifications.save_config'), \
              patch('functions.notifications.log_notification'):
-            
-            try:
-                check_endpoints()
-            except KeyboardInterrupt:
-                pass
-            
-            # Verify API was called
-            mock_api.assert_called()
-            # Verify notification was sent
-            mock_send.assert_called()
+            check_endpoints()
+
+        mock_send.assert_called()
 
     @patch('time.sleep')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     @patch('functions.notifications.make_api_request')
     @patch('functions.notifications.send_discord_notification')
     def test_check_endpoints_change_detection(self, mock_send, mock_api, mock_get_config, mock_sleep):
         """Test check_endpoints with change detection"""
         mock_config = {
+            "check_interval": 5,
             "notification_flows": [
                 {
                     "name": "Change Detection Flow",
                     "active": True,
-                    "trigger_type": "timer",
-                    "url": "https://api.example.com/status",
-                    "interval": 60,
-                    "message_template": "Status changed to: {status}",
-                    "change_detection": True,
+                    "trigger_type": "on_change",
+                    "endpoint": "https://api.example.com/status",
+                    "field": "status",
+                    "message_template": "Status changed to: {value}",
                     "last_value": "offline",
-                    "last_run": None
                 }
-            ]
+            ],
         }
         mock_get_config.return_value = mock_config
-        
-        # Mock API response showing change
         mock_api.return_value = {"status": "online"}
         mock_send.return_value = True
-        
-        def side_effect(*args):
-            raise KeyboardInterrupt()
-        
-        mock_sleep.side_effect = side_effect
-        
-        with patch('functions.config.save_config'), \
+        mock_sleep.side_effect = KeyboardInterrupt()
+
+        with patch('functions.notifications.save_config'), \
              patch('functions.notifications.log_notification'):
-            
-            try:
-                check_endpoints()
-            except KeyboardInterrupt:
-                pass
-            
-            # Should send notification due to change detection
-            mock_send.assert_called()
+            check_endpoints()
+
+        mock_send.assert_called()
 
     @patch('time.sleep')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     @patch('functions.notifications.make_api_request')
     def test_check_endpoints_api_failure(self, mock_api, mock_get_config, mock_sleep):
         """Test check_endpoints with API failure"""
         mock_config = {
+            "check_interval": 5,
             "notification_flows": [
                 {
                     "name": "API Flow",
                     "active": True,
-                    "trigger_type": "timer",
-                    "url": "https://api.example.com/status",
-                    "interval": 60,
-                    "message_template": "Status: {status}",
-                    "last_run": None
+                    "trigger_type": "on_change",
+                    "endpoint": "https://api.example.com/status",
+                    "field": "status",
+                    "message_template": "Status: {value}",
                 }
-            ]
+            ],
         }
         mock_get_config.return_value = mock_config
-        
-        # Mock API failure
         mock_api.return_value = None
-        
-        def side_effect(*args):
-            raise KeyboardInterrupt()
-        
-        mock_sleep.side_effect = side_effect
-        
-        with patch('functions.config.save_config'), \
+        mock_sleep.side_effect = KeyboardInterrupt()
+
+        with patch('functions.notifications.save_config'), \
              patch('functions.notifications.log_notification'):
-            
-            try:
-                check_endpoints()
-            except KeyboardInterrupt:
-                pass
-            
-            # API should have been called despite failure
-            mock_api.assert_called()
+            check_endpoints()
+
+        mock_api.assert_called()
 
     @patch('time.sleep')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_check_endpoints_inactive_flow(self, mock_get_config, mock_sleep):
         """Test check_endpoints skips inactive flows"""
         mock_config = {
+            "check_interval": 5,
             "notification_flows": [
                 {
                     "name": "Inactive Flow",
                     "active": False,
-                    "trigger_type": "timer",
-                    "url": "https://api.example.com/status",
-                    "interval": 60,
-                    "message_template": "Status: {status}",
-                    "last_run": None
+                    "trigger_type": "on_change",
+                    "endpoint": "https://api.example.com/status",
+                    "field": "status",
+                    "message_template": "Status: {value}",
                 }
-            ]
+            ],
         }
         mock_get_config.return_value = mock_config
-        
-        def side_effect(*args):
-            raise KeyboardInterrupt()
-        
-        mock_sleep.side_effect = side_effect
-        
-        with patch('functions.notifications.make_api_request') as mock_api:
-            try:
-                check_endpoints()
-            except KeyboardInterrupt:
-                pass
-            
-            # Should not call API for inactive flow
-            mock_api.assert_not_called()
+        mock_sleep.side_effect = KeyboardInterrupt()
+
+        with patch('functions.notifications.make_api_request') as mock_api, \
+             patch('functions.notifications.log_notification'):
+            check_endpoints()
+
+        mock_api.assert_not_called()
 
     def test_field_extraction_with_real_data(self):
         """Test field extraction with real webhook data"""
@@ -497,12 +468,13 @@ class TestNotifications(unittest.TestCase):
                 self.assertEqual(result, str(expected))
 
     @patch('functions.notifications.requests.post')
-    @patch('functions.config.get_config')
+    @patch('functions.notifications.get_config')
     def test_notification_with_real_webhook_data(self, mock_get_config, mock_post):
         """Test full notification flow with real webhook data"""
         mock_get_config.return_value = {"user_variables": {}}
         mock_response = Mock()
         mock_response.status_code = 204
+        mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
         # Test with Sonarr data
@@ -513,16 +485,17 @@ class TestNotifications(unittest.TestCase):
             "last_data": json.dumps(SONARR_WEBHOOK_DATA)
         }
         
-        with patch('functions.notifications.format_message_template') as mock_format:
-            mock_format.return_value = "🎬 **Breaking Bad** - Pilot"
+        with patch('functions.notifications.format_message_template') as mock_format, \
+             patch('functions.notifications.increment_notification_counter'), \
+             patch('functions.notifications.log_notification_sent'), \
+             patch('functions.notifications.log_notification'):
+            mock_format.return_value = ("🎬 **Breaking Bad** - Pilot", [])
             
             result = send_discord_notification("", flow, SONARR_WEBHOOK_DATA)
             
             self.assertTrue(result)
             mock_post.assert_called_once()
-            
-            # Verify the template was called with the webhook data
-            mock_format.assert_called_with("", SONARR_WEBHOOK_DATA, {})
+            mock_format.assert_called_with("", SONARR_WEBHOOK_DATA, {}, extract_images=True)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

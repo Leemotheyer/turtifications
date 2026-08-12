@@ -314,8 +314,8 @@ class TestFlowTemplates(unittest.TestCase):
         self.assertEqual(get_templates_by_category(None), FLOW_TEMPLATES)
         self.assertIsNone(get_template(None))
         
-        # Test with empty string
-        self.assertEqual(get_templates_by_category(""), {})
+        # Empty string is falsy, so all templates are returned
+        self.assertEqual(get_templates_by_category(""), FLOW_TEMPLATES)
         self.assertIsNone(get_template(""))
         
         # Test with whitespace

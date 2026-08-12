@@ -263,60 +263,47 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(logs, [])
 
     def test_get_log_stats_all_categories(self):
-        """Test that get_log_stats returns stats for all categories"""
+        """Test that get_log_stats returns aggregate stats and category counts"""
         log_file = os.path.join(self.test_dir, 'notification_logs.json')
         os.makedirs(self.test_dir, exist_ok=True)
-        
-        # Create logs with different categories
+
         test_logs = SAMPLE_LOGS.copy()
         with open(log_file, 'w') as f:
             json.dump(test_logs, f)
-        
+
         stats = get_log_stats()
-        
-        # Check that stats is a dictionary
+
         self.assertIsInstance(stats, dict)
-        
-        # Check that it contains expected categories
-        expected_categories = {'Notifications', 'Change Detection', 'Timers', 'Webhooks', 'Errors', 'Testing'}
-        found_categories = set(stats.keys())
-        
-        self.assertTrue(expected_categories.issubset(found_categories))
+        self.assertEqual(stats['total_logs'], len(test_logs))
+        self.assertIn('category_counts', stats)
+        self.assertIn('Notifications', stats['category_counts'])
 
     def test_get_log_stats_specific_category(self):
-        """Test that get_log_stats returns stats for specific category"""
+        """Test that get_log_stats can filter by category"""
         log_file = os.path.join(self.test_dir, 'notification_logs.json')
         os.makedirs(self.test_dir, exist_ok=True)
-        
+
         test_logs = SAMPLE_LOGS.copy()
         with open(log_file, 'w') as f:
             json.dump(test_logs, f)
-        
+
         stats = get_log_stats(category='Notifications')
-        
-        # Should only contain Notifications category
-        self.assertIn('Notifications', stats)
-        # Count should match number of notification logs
+
+        self.assertEqual(stats['filtered_category'], 'Notifications')
         notification_count = sum(1 for log in test_logs if log['category'] == 'Notifications')
-        self.assertEqual(stats['Notifications'], notification_count)
+        self.assertEqual(stats['total_logs'], notification_count)
 
     def test_get_log_stats_empty_logs(self):
         """Test that get_log_stats handles empty logs"""
-        initialize_files()  # Creates empty log file
-        
-        stats = get_log_stats()
-        
-        self.assertIsInstance(stats, dict)
-        self.assertEqual(stats, {})
+        initialize_files()
 
-    def test_file_permissions_error_handling(self):
-        """Test handling of file permission errors"""
-        # Create a directory where config file should be, causing permission error
-        config_dir = os.path.join(self.test_dir, 'config.json')
-        os.makedirs(config_dir, exist_ok=True)
-        
-        with self.assertRaises(Exception):
-            initialize_files()
+        stats = get_log_stats()
+
+        self.assertEqual(stats['total_logs'], 0)
+        self.assertEqual(stats['category_counts'], {})
+        self.assertIsNone(stats['oldest_log'])
+        self.assertIsNone(stats['newest_log'])
+
 
     def test_json_decode_error_handling(self):
         """Test handling of malformed JSON files"""

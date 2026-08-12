@@ -473,6 +473,42 @@ def safe_eval_calculation(expression, variables):
         log_notification(f"Calculation error in '{expression}': {str(e)}")
         return f"CALC_ERROR({expression})"
 
+def _coerce_user_variable(value):
+    """Coerce configured user variable strings into useful Python types."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value
+    if not isinstance(value, str):
+        return value
+
+    stripped = value.strip()
+    if stripped.lower() == 'true':
+        return True
+    if stripped.lower() == 'false':
+        return False
+    try:
+        if '.' in stripped:
+            return float(stripped)
+        return int(stripped)
+    except ValueError:
+        return value
+
+
+def _prepare_condition_expression(condition, user_variables):
+    """Expand {var:name} placeholders and normalize user variable names."""
+    processed = condition
+
+    def replace_var(match):
+        var_name = match.group(1).strip()
+        if var_name not in user_variables:
+            raise ValueError(f"Unknown user variable '{var_name}'")
+        return repr(_coerce_user_variable(user_variables[var_name]))
+
+    processed = re.sub(r'\{var:([^}]+)\}', replace_var, processed)
+    return processed
+
+
 def evaluate_condition(condition, data, user_variables=None):
     """Safely evaluate a condition expression using AST instead of eval()"""
     if not condition or not condition.strip():
@@ -525,7 +561,7 @@ def evaluate_condition(condition, data, user_variables=None):
         
         # Add user variables first
         for var_name, var_value in user_variables.items():
-            safe_vars[var_name] = var_value
+            safe_vars[var_name] = _coerce_user_variable(var_value)
         
         # Add all data fields to the safe variables
         if isinstance(data, dict):
@@ -533,8 +569,8 @@ def evaluate_condition(condition, data, user_variables=None):
         
         # Define built-in variables that cannot be overwritten
         builtin_vars = {
-            'value': data.get('value'),
-            'old_value': data.get('old_value'),
+            'value': data.get('value') if isinstance(data, dict) else None,
+            'old_value': data.get('old_value') if isinstance(data, dict) else None,
             'data': data,
             'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'True': True,
@@ -542,10 +578,7 @@ def evaluate_condition(condition, data, user_variables=None):
             'None': None,
             'len': len,  # Add built-in len function
         }
-        
-        # Add all data fields to the safe variables
-        if isinstance(data, dict):
-            safe_vars.update(data)
+        safe_vars.update(builtin_vars)
         
         def safe_eval_node(node):
             """Safely evaluate an AST node"""
@@ -625,12 +658,8 @@ def evaluate_condition(condition, data, user_variables=None):
             else:
                 raise ValueError(f"AST node type {type(node).__name__} not allowed")
         
-        # Pre-process the condition to handle bracket notation
-        condition_processed = condition
-        
-        # Handle bracket notation: result['downloaded_issues'] -> result['downloaded_issues']
-        # AST can handle bracket notation directly, no transformation needed
-        bracket_pattern = r'(\w+)\[\'([^\']+)\'\]'
+        # Pre-process variable placeholders before parsing
+        condition_processed = _prepare_condition_expression(condition, user_variables)
         
         # Parse and evaluate the condition safely
         try:

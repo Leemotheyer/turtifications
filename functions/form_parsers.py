@@ -163,42 +163,51 @@ def build_flow_from_json(data, existing_flow=None):
     if not isinstance(data, dict):
         raise ValueError('Request body must be a JSON object')
 
-    name = (data.get('name') or '').strip()
+    payload = {**existing_flow, **data} if existing_flow else dict(data)
+
+    name = (payload.get('name') or '').strip()
     if not name:
         raise ValueError('Flow name is required')
 
-    trigger_type = data.get('trigger_type', 'on_change')
+    trigger_type = payload.get('trigger_type', existing_flow.get('trigger_type', 'on_change') if existing_flow else 'on_change')
     if trigger_type not in ('timer', 'on_change', 'webhook'):
         raise ValueError('Invalid trigger_type')
 
     flow = {
         'name': name,
         'trigger_type': trigger_type,
-        'webhook_url': data.get('webhook_url', ''),
-        'webhook_name': data.get('webhook_name', ''),
-        'webhook_avatar': data.get('webhook_avatar', ''),
-        'message_template': data.get('message_template', ''),
-        'active': bool(data.get('active', True)),
-        'endpoint': data.get('endpoint', ''),
-        'field': data.get('field', ''),
-        'interval': data.get('interval', 5) if trigger_type == 'timer' else None,
-        'poll_interval': data.get('poll_interval') if trigger_type == 'on_change' else None,
+        'webhook_url': payload.get('webhook_url', ''),
+        'webhook_name': payload.get('webhook_name', ''),
+        'webhook_avatar': payload.get('webhook_avatar', ''),
+        'message_template': payload.get('message_template', ''),
+        'active': bool(payload.get('active', True)),
+        'endpoint': payload.get('endpoint', ''),
+        'field': payload.get('field', ''),
+        'interval': payload.get('interval', 5) if trigger_type == 'timer' else None,
+        'poll_interval': payload.get('poll_interval') if trigger_type == 'on_change' else None,
         'accept_webhooks': trigger_type == 'webhook',
-        'embed_config': data.get('embed_config', {}),
-        'category': data.get('category', 'General'),
-        'condition_enabled': bool(data.get('condition_enabled', False)),
-        'condition': data.get('condition', ''),
-        'api_headers': data.get('api_headers', []),
-        'api_request_body': data.get('api_request_body', ''),
+        'embed_config': payload.get('embed_config', {}),
+        'category': payload.get('category', 'General'),
+        'condition_enabled': bool(payload.get('condition_enabled', False)),
+        'condition': payload.get('condition', ''),
+        'api_headers': payload.get('api_headers', []),
+        'api_request_body': payload.get('api_request_body', ''),
     }
 
-    if trigger_type == 'webhook' and data.get('require_webhook_secret'):
+    if trigger_type == 'timer' and flow['interval'] is not None:
+        flow['interval'] = int(flow['interval'])
+
+    if trigger_type == 'on_change' and flow['poll_interval'] is not None:
+        flow['poll_interval'] = int(flow['poll_interval'])
+
+    if trigger_type == 'webhook' and payload.get('require_webhook_secret'):
         if existing_flow and existing_flow.get('webhook_secret'):
             flow['webhook_secret'] = existing_flow['webhook_secret']
         else:
             flow['webhook_secret'] = secrets.token_urlsafe(16)
-    elif existing_flow and existing_flow.get('webhook_secret') and data.get('keep_webhook_secret'):
-        flow['webhook_secret'] = existing_flow['webhook_secret']
+    elif existing_flow and existing_flow.get('webhook_secret'):
+        if payload.get('keep_webhook_secret', True) and 'webhook_secret' not in data:
+            flow['webhook_secret'] = existing_flow['webhook_secret']
 
     if existing_flow:
         for key in ('last_value', 'last_run', 'last_data'):
