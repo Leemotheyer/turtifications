@@ -2,9 +2,9 @@ name: Build and release Docker image
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "development" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "development" ]
 
 env:
   REGISTRY: ghcr.io
@@ -34,11 +34,11 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=schedule
           type=ref,event=branch
           type=ref,event=tag
           type=ref,event=pr
           type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          type=raw,value=development,enable=${{ github.ref == 'refs/heads/development' }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
