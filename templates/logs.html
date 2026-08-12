@@ -1,14 +1,21 @@
 {% extends "base.html" %}
+{% block title %}Logs{% endblock %}
 
 {% block content %}
-    <section class="logs">
-        <div class="logs-header">
-            <h2>Notification Logs</h2>
+    <header class="page-header">
+        <p class="page-eyebrow">Activity</p>
+        <h1 class="page-title">System logs</h1>
+        <p class="page-description">Review application events, filter by category, and clear old entries when needed.</p>
+    </header>
+
+    <section class="panel logs">
+        <div class="panel-header logs-header">
+            <h2 class="panel-title">Log entries</h2>
             <div class="logs-actions">
                 <div class="category-filter">
-                    <label for="category-filter">Filter by Category:</label>
+                    <label for="category-filter">Category</label>
                     <select id="category-filter" onchange="filterByCategory()">
-                        <option value="">All Categories</option>
+                        <option value="">All categories</option>
                         {% for category in categories %}
                             <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>
                                 {{ category }}
@@ -16,88 +23,87 @@
                         {% endfor %}
                     </select>
                 </div>
-                <button onclick="clearLogs()" class="btn-clear">Clear Logs</button>
-                <button onclick="refreshLogs()" class="btn-refresh">Refresh</button>
+                <button type="button" onclick="clearLogs()" class="btn-clear">Clear logs</button>
+                <button type="button" onclick="refreshLogs()" class="btn-refresh">Refresh</button>
             </div>
         </div>
-        
-        <div class="log-stats">
-            <div class="stat-item">
-                <strong>Total Logs:</strong> <span id="total-logs">Loading...</span>
-            </div>
-            <div class="stat-item">
-                <strong>Oldest Log:</strong> <span id="oldest-log">Loading...</span>
-            </div>
-            <div class="stat-item">
-                <strong>Newest Log:</strong> <span id="newest-log">Loading...</span>
-            </div>
-            {% if selected_category %}
-            <div class="stat-item">
-                <strong>Filtered by:</strong> <span id="filtered-category">{{ selected_category }}</span>
-            </div>
-            {% endif %}
-        </div>
-        
-        <div class="category-breakdown" id="category-breakdown" style="display: none;">
-            <h4>Category Breakdown</h4>
-            <div class="category-stats" id="category-stats">
-                <!-- Category stats will be populated by JavaScript -->
-            </div>
-        </div>
-        
-        <div class="log-entries">
-            {% for log in logs %}
-                <div class="log-entry" data-category="{{ log.category or 'General' }}">
-                    <div class="log-header">
-                        <span class="timestamp">{{ log.timestamp }}</span>
-                        <span class="log-category category-{{ (log.category or 'General')|lower|replace(' ', '-') }}">{{ log.category or 'General' }}</span>
-                    </div>
-                    <span class="message">{{ log.message }}</span>
+
+        <div class="panel-body">
+            <div class="log-stats stat-strip">
+                <div class="stat-pill">
+                    <span class="stat-pill-value" id="total-logs">—</span>
+                    <span class="stat-pill-label">Total logs</span>
                 </div>
-            {% else %}
-                <p>No logs yet.</p>
-            {% endfor %}
+                <div class="stat-pill">
+                    <span class="stat-pill-value" id="oldest-log" style="font-size: 0.9rem;">—</span>
+                    <span class="stat-pill-label">Oldest</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-pill-value" id="newest-log" style="font-size: 0.9rem;">—</span>
+                    <span class="stat-pill-label">Newest</span>
+                </div>
+                {% if selected_category %}
+                <div class="stat-pill">
+                    <span class="stat-pill-value" id="filtered-category">{{ selected_category }}</span>
+                    <span class="stat-pill-label">Filtered by</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="category-breakdown" id="category-breakdown" hidden>
+                <h4>Category breakdown</h4>
+                <div class="category-stats" id="category-stats"></div>
+            </div>
+
+            <div class="log-entries">
+                {% for log in logs %}
+                    <article class="log-entry" data-category="{{ log.category or 'General' }}">
+                        <div class="log-header">
+                            <time class="timestamp">{{ log.timestamp }}</time>
+                            <span class="log-category category-{{ (log.category or 'General')|lower|replace(' ', '-') }}">{{ log.category or 'General' }}</span>
+                        </div>
+                        <span class="message">{{ log.message }}</span>
+                    </article>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon" aria-hidden="true">📄</div>
+                        <h3 class="empty-state-title">No logs yet</h3>
+                        <p class="empty-state-text">Events will appear here as flows run and notifications are sent.</p>
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </section>
 
     <script>
-        // Load log statistics on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadLogStats();
         });
-        
+
         function loadLogStats() {
             const categoryFilter = document.getElementById('category-filter');
             const selectedCategory = categoryFilter ? categoryFilter.value : '';
             const url = selectedCategory ? `/logs/stats?category=${encodeURIComponent(selectedCategory)}` : '/logs/stats';
-            
+
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('total-logs').textContent = data.total_logs;
                     document.getElementById('oldest-log').textContent = data.oldest_log || 'N/A';
                     document.getElementById('newest-log').textContent = data.newest_log || 'N/A';
-                    
-                    // Show category breakdown if available
                     if (data.category_counts) {
                         showCategoryBreakdown(data.category_counts);
                     }
                 })
-                .catch(error => {
-                    console.error('Error loading log stats:', error);
-                });
+                .catch(error => console.error('Error loading log stats:', error));
         }
-        
+
         function showCategoryBreakdown(categoryCounts) {
             const breakdownDiv = document.getElementById('category-breakdown');
             const statsDiv = document.getElementById('category-stats');
-            
             if (!breakdownDiv || !statsDiv) return;
-            
-            // Clear existing content
+
             statsDiv.innerHTML = '';
-            
-            // Create category stat items
             Object.entries(categoryCounts).forEach(([category, count]) => {
                 const statItem = document.createElement('div');
                 statItem.className = 'category-stat-item';
@@ -107,51 +113,27 @@
                 `;
                 statsDiv.appendChild(statItem);
             });
-            
-            breakdownDiv.style.display = 'block';
+            breakdownDiv.hidden = false;
         }
-        
+
         function clearLogs() {
-            if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
-                fetch('/logs/clear', {
-                    method: 'POST'
-                })
-                .then(() => {
-                    window.location.reload();
-                })
-                .catch(error => {
-                    console.error('Error clearing logs:', error);
-                    alert('Failed to clear logs');
-                });
+            if (confirm('Clear all logs? This cannot be undone.')) {
+                fetch('/logs/clear', { method: 'POST' })
+                    .then(() => window.location.reload())
+                    .catch(() => notify('Failed to clear logs', 'error'));
             }
         }
-        
+
         function refreshLogs() {
             window.location.reload();
         }
-        
+
         function filterByCategory() {
             const categoryFilter = document.getElementById('category-filter');
             const selectedCategory = categoryFilter.value;
-            
-            if (selectedCategory) {
-                window.location.href = `/logs?category=${encodeURIComponent(selectedCategory)}`;
-            } else {
-                window.location.href = '/logs';
-            }
+            window.location.href = selectedCategory
+                ? `/logs?category=${encodeURIComponent(selectedCategory)}`
+                : '/logs';
         }
-        
-        // Reload stats when category filter changes
-        document.addEventListener('DOMContentLoaded', function() {
-            const categoryFilter = document.getElementById('category-filter');
-            if (categoryFilter) {
-                categoryFilter.addEventListener('change', function() {
-                    // Small delay to ensure the page navigation happens
-                    setTimeout(() => {
-                        loadLogStats();
-                    }, 100);
-                });
-            }
-        });
     </script>
 {% endblock %}

@@ -547,6 +547,38 @@ nav a.active,
     padding: 1.25rem;
 }
 
+.panel-highlight {
+    border-color: var(--accent-ring);
+    background: linear-gradient(180deg, var(--accent-muted) 0%, var(--bg-surface) 100%);
+}
+
+section.panel {
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.test-notification-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .test-notification-form {
+        flex-direction: row;
+        align-items: stretch;
+    }
+
+    .test-notification-form input[type="text"] {
+        flex: 1;
+    }
+
+    .test-notification-form button {
+        width: auto;
+        flex-shrink: 0;
+    }
+}
+
 .content-grid {
     display: grid;
     grid-template-columns: 1fr;

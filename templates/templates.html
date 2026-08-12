@@ -1,97 +1,104 @@
 {% extends "base.html" %}
+{% block title %}Templates{% endblock %}
 
 {% block content %}
-    <section class="templates">
-        <h2>Flow Templates</h2>
-        <p>Choose from pre-built templates to quickly create common notification flows.</p>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <!-- Category Filter -->
-        <div class="template-filters">
-            <a href="{{ url_for('show_templates') }}" 
-               class="filter-btn {% if not selected_category %}active{% endif %}">
-                All Categories
-            </a>
-            {% for category in categories %}
-                <a href="{{ url_for('show_templates', category=category) }}" 
-                   class="filter-btn {% if selected_category == category %}active{% endif %}">
-                    {{ category }}
+    <header class="page-header">
+        <p class="page-eyebrow">Get started fast</p>
+        <h1 class="page-title">Flow templates</h1>
+        <p class="page-description">Pre-built notification flows for common apps and use cases. Pick one, customize it, and activate.</p>
+    </header>
+
+    <section class="panel templates">
+        <div class="panel-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="template-filters" role="tablist" aria-label="Filter by category">
+                <a href="{{ url_for('show_templates') }}"
+                   class="filter-btn {% if not selected_category %}active{% endif %}">
+                    All
                 </a>
-            {% endfor %}
-        </div>
-        
-        <!-- Templates Grid -->
-        <div class="templates-grid">
-            {% for template_id, template in templates.items() %}
-                <div class="template-card">
-                    <div class="template-header">
-                        <h3>{{ template.name }}</h3>
-                        <span class="template-category">{{ template.category }}</span>
-                    </div>
-                    
-                    <p class="template-description">{{ template.description }}</p>
-                    
-                    <div class="template-details">
-                        <div class="detail-item">
-                            <strong>Trigger:</strong> 
-                            {% if template.trigger_type == 'timer' %}
-                                <span class="badge badge-timer">Scheduled</span>
-                            {% elif template.trigger_type == 'on_change' %}
-                                <span class="badge badge-change">Change Detection</span>
-                            {% elif template.trigger_type == 'on_incoming' %}
-                                <span class="badge badge-webhook">Webhook</span>
+                {% for category in categories %}
+                    <a href="{{ url_for('show_templates', category=category) }}"
+                       class="filter-btn {% if selected_category == category %}active{% endif %}">
+                        {{ category }}
+                    </a>
+                {% endfor %}
+            </div>
+
+            <div class="templates-grid">
+                {% for template_id, template in templates.items() %}
+                    <article class="template-card">
+                        <div class="template-header">
+                            <h3>{{ template.name }}</h3>
+                            <span class="template-category">{{ template.category }}</span>
+                        </div>
+
+                        <p class="template-description">{{ template.description }}</p>
+
+                        <div class="template-details">
+                            <div class="detail-item">
+                                <strong>Trigger</strong>
+                                {% if template.trigger_type == 'timer' %}
+                                    <span class="badge badge-timer">Scheduled</span>
+                                {% elif template.trigger_type == 'on_change' %}
+                                    <span class="badge badge-change">Change detection</span>
+                                {% elif template.trigger_type == 'webhook' %}
+                                    <span class="badge badge-webhook">Webhook</span>
+                                {% endif %}
+                            </div>
+
+                            {% if template.trigger_type == 'timer' and template.interval %}
+                                <div class="detail-item">
+                                    <strong>Interval</strong>
+                                    <span>{{ template.interval }} minutes</span>
+                                </div>
+                            {% endif %}
+
+                            {% if template.endpoint %}
+                                <div class="detail-item">
+                                    <strong>Endpoint</strong>
+                                    <span>{{ template.endpoint }}</span>
+                                </div>
+                            {% endif %}
+
+                            {% if template.field %}
+                                <div class="detail-item">
+                                    <strong>Field</strong>
+                                    <span><code>{{ template.field }}</code></span>
+                                </div>
                             {% endif %}
                         </div>
-                        
-                        {% if template.trigger_type == 'timer' and template.interval %}
-                            <div class="detail-item">
-                                <strong>Interval:</strong> {{ template.interval }} minutes
+
+                        <div class="template-preview">
+                            <strong>Message preview</strong>
+                            <div class="preview-content">
+                                {{ template.message_template[:100] }}{% if template.message_template|length > 100 %}...{% endif %}
                             </div>
-                        {% endif %}
-                        
-                        {% if template.endpoint %}
-                            <div class="detail-item">
-                                <strong>Endpoint:</strong> {{ template.endpoint }}
-                            </div>
-                        {% endif %}
-                        
-                        {% if template.field %}
-                            <div class="detail-item">
-                                <strong>Field:</strong> {{ template.field }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="template-preview">
-                        <strong>Message Preview:</strong>
-                        <div class="preview-content">
-                            {{ template.message_template[:100] }}{% if template.message_template|length > 100 %}...{% endif %}
                         </div>
+
+                        <div class="template-actions">
+                            <a href="{{ url_for('use_template', template_name=template_id) }}"
+                               class="btn-use-template">Use template</a>
+                        </div>
+                    </article>
+                {% else %}
+                    <div class="no-templates empty-state">
+                        <div class="empty-state-icon" aria-hidden="true">📋</div>
+                        <h3 class="empty-state-title">No templates found</h3>
+                        <p class="empty-state-text">Try a different category or create a custom flow.</p>
                     </div>
-                    
-                    <div class="template-actions">
-                        <a href="{{ url_for('use_template', template_name=template_id) }}" 
-                           class="btn-use-template">Use Template</a>
-                    </div>
-                </div>
-            {% else %}
-                <div class="no-templates">
-                    <p>No templates found for the selected category.</p>
-                </div>
-            {% endfor %}
-        </div>
-        
-        <div class="template-actions-bottom">
-            <a href="{{ url_for('notification_builder') }}" class="btn-secondary">Create Custom Flow</a>
+                {% endfor %}
+            </div>
+
+            <div class="template-actions-bottom">
+                <a href="{{ url_for('notification_builder') }}" class="btn-secondary">Create custom flow</a>
+            </div>
         </div>
     </section>
-{% endblock %} 
+{% endblock %}

@@ -1,99 +1,102 @@
 {% extends "base.html" %}
+{% block title %}Configure{% endblock %}
 
 {% block content %}
-    <section class="configuration">
-        <h2>System Configuration</h2>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        <form action="{{ url_for('configure') }}" method="post">
-            <h3>Discord Webhook Settings</h3>
-            <div class="form-group">
-                <label for="webhook_url">Discord Webhook URL:</label>
-                <input type="url" id="webhook_url" name="webhook_url" 
-                       value="{{ config.discord_webhook }}" placeholder="https://discord.com/api/webhooks/..." required>
-                <small>This webhook will be used as the default for all notification flows</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="default_webhook_name">Default Webhook Name:</label>
-                <input type="text" id="default_webhook_name" name="default_webhook_name" 
-                       value="{{ config.default_webhook_name }}" placeholder="Notification Bot">
-                <small>Default name for Discord webhooks (can be overridden per flow)</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="default_webhook_avatar">Default Webhook Avatar URL:</label>
-                <input type="url" id="default_webhook_avatar" name="default_webhook_avatar" 
-                       value="{{ config.default_webhook_avatar }}" placeholder="https://example.com/avatar.png">
-                <small>Default avatar for Discord webhooks (can be overridden per flow)</small>
-            </div>
-            
-            <h3>Saved Variables</h3>
-            <div id="variables-list">
-                {% for k, v in user_variables.items() %}
-                <div class="variable-row">
-                    <input type="text" name="var_key[]" value="{{ k }}" placeholder="Variable Name" autocomplete="off">
-                    <input type="text" name="var_value[]" value="{{ v }}" placeholder="Value" autocomplete="off">
-                    <button type="button" class="remove-variable" onclick="this.parentElement.remove()">✖</button>
+    <header class="page-header">
+        <p class="page-eyebrow">Settings</p>
+        <h1 class="page-title">Configuration</h1>
+        <p class="page-description">Set your default Discord webhook, reusable variables, and system behavior.</p>
+    </header>
+
+    <section class="panel configuration">
+        <div class="panel-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('configure') }}" method="post">
+                <h3>Discord webhook settings</h3>
+                <div class="form-group">
+                    <label for="webhook_url">Discord webhook URL</label>
+                    <input type="url" id="webhook_url" name="webhook_url"
+                           value="{{ config.discord_webhook }}" placeholder="https://discord.com/api/webhooks/..." required>
+                    <small>Used as the default webhook for all notification flows.</small>
                 </div>
-                {% endfor %}
+
+                <div class="form-group">
+                    <label for="default_webhook_name">Default webhook name</label>
+                    <input type="text" id="default_webhook_name" name="default_webhook_name"
+                           value="{{ config.default_webhook_name }}" placeholder="Notification Bot">
+                    <small>Shown as the sender name in Discord (can be overridden per flow).</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="default_webhook_avatar">Default webhook avatar URL</label>
+                    <input type="url" id="default_webhook_avatar" name="default_webhook_avatar"
+                           value="{{ config.default_webhook_avatar }}" placeholder="https://example.com/avatar.png">
+                    <small>Optional avatar image for Discord messages.</small>
+                </div>
+
+                <h3>Saved variables</h3>
+                <p class="page-description" style="margin-bottom: 1rem;">Reuse values across flows with <code>{var:your_variable_name}</code> or in calculations like <code>[{var:bonus} + {value}]</code>.</p>
+                <div id="variables-list">
+                    {% for k, v in user_variables.items() %}
+                    <div class="variable-row">
+                        <input type="text" name="var_key[]" value="{{ k }}" placeholder="Variable name" autocomplete="off">
+                        <input type="text" name="var_value[]" value="{{ v }}" placeholder="Value" autocomplete="off">
+                        <button type="button" class="remove-variable" onclick="this.parentElement.remove()" aria-label="Remove variable">✕</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" id="add-variable" class="btn-secondary">Add variable</button>
+
+                <h3>System settings</h3>
+                <div class="form-group">
+                    <label for="check_interval">Check interval (seconds)</label>
+                    <input type="number" id="check_interval" name="check_interval"
+                           value="{{ config.check_interval }}" min="1" max="3600" required>
+                    <small>How often to poll API endpoints for changes (1–3600 seconds).</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="log_retention">Log retention (entries)</label>
+                    <input type="number" id="log_retention" name="log_retention"
+                           value="{{ config.log_retention }}" min="100" max="10000" required>
+                    <small>Maximum log entries to keep (100–10000).</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="notification_log_retention">Notification log retention (entries)</label>
+                    <input type="number" id="notification_log_retention" name="notification_log_retention"
+                           value="{{ config.notification_log_retention or 500 }}" min="10" max="500" required>
+                    <small>How many sent notifications appear on the dashboard (10–500).</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Save configuration</button>
+                </div>
+            </form>
+
+            <div class="instructions">
+                <h3>How to get a Discord webhook URL</h3>
+                <ol>
+                    <li>Open your Discord server settings</li>
+                    <li>Go to Integrations → Webhooks</li>
+                    <li>Click New Webhook or select an existing one</li>
+                    <li>Copy the webhook URL and paste it above</li>
+                </ol>
+
+                <h3>Tips</h3>
+                <ul>
+                    <li><strong>Check interval:</strong> Lower values detect changes faster but make more API calls.</li>
+                    <li><strong>Log retention:</strong> Higher values keep more history but use more disk space.</li>
+                    <li><strong>Notification log:</strong> Controls how many recent sends show on the dashboard.</li>
+                </ul>
             </div>
-            <button type="button" id="add-variable">+ Add Variable</button>
-            <small>You can use these variables in message templates as <code>{var:your_variable_name}</code> or in calculations like <code>[{var:bonus} + {value}]</code></small>
-            
-            <h3>System Settings</h3>
-            <div class="form-group">
-                <label for="check_interval">Check Interval (seconds):</label>
-                <input type="number" id="check_interval" name="check_interval" 
-                       value="{{ config.check_interval }}" min="1" max="3600" required>
-                <small>How often to check API endpoints for changes (1-3600 seconds)</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="log_retention">Log Retention (entries):</label>
-                <input type="number" id="log_retention" name="log_retention" 
-                       value="{{ config.log_retention }}" min="100" max="10000" required>
-                <small>Maximum number of log entries to keep (100-10000)</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="notification_log_retention">Notification Log Retention (entries):</label>
-                <input type="number" id="notification_log_retention" name="notification_log_retention" 
-                       value="{{ config.notification_log_retention or 500 }}" min="10" max="500" required>
-                <small>Maximum number of notification entries to keep (10-500)</small>
-            </div>
-            
-            <div class="form-actions">
-                <button type="submit">Save Configuration</button>
-            </div>
-        </form>
-        
-        <div class="instructions">
-            <h3>How to get a Discord Webhook URL:</h3>
-            <ol>
-                <li>Go to your Discord server settings</li>
-                <li>Select "Integrations" then "Webhooks"</li>
-                <li>Click "New Webhook" or select an existing one</li>
-                <li>Copy the Webhook URL</li>
-                <li>Paste it above and click Save</li>
-            </ol>
-            
-            <h3>Configuration Tips:</h3>
-            <ul>
-                <li><strong>Check Interval:</strong> Lower values = faster detection but more API calls</li>
-                <li><strong>Log Retention:</strong> Higher values = more history but larger log files</li>
-                <li><strong>Notification Log Retention:</strong> Controls how many sent notifications are shown on the homepage</li>
-                <li><strong>Webhook Name/Avatar:</strong> These will be used as defaults for new flows</li>
-            </ul>
         </div>
     </section>
 {% endblock %}
@@ -107,19 +110,12 @@
             addBtn.onclick = function() {
                 var row = document.createElement('div');
                 row.className = 'variable-row';
-                row.innerHTML = `<input type="text" name="var_key[]" placeholder="Variable Name" autocomplete="off">
+                row.innerHTML = `<input type="text" name="var_key[]" placeholder="Variable name" autocomplete="off">
                     <input type="text" name="var_value[]" placeholder="Value" autocomplete="off">
-                    <button type="button" class="remove-variable" onclick="this.parentElement.remove()">✖</button>`;
+                    <button type="button" class="remove-variable" onclick="this.parentElement.remove()" aria-label="Remove variable">✕</button>`;
                 document.getElementById('variables-list').appendChild(row);
             };
         }
     });
     </script>
-    <style>
-    .variable-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
-    .variable-row input[type="text"] { flex: 1 1 120px; }
-    .remove-variable { background: #eee; border: none; color: #c0392b; font-size: 1.1em; border-radius: 3px; cursor: pointer; padding: 0 8px; }
-    .remove-variable:hover { background: #c0392b; color: #fff; }
-    #add-variable { margin-bottom: 10px; margin-top: 4px; }
-    </style>
 {% endblock %}

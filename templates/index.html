@@ -1,172 +1,245 @@
 {% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-    <div class="homepage-container">
+    <header class="page-header">
+        <p class="page-eyebrow">Discord notifications</p>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-description">Monitor active flows, review recent notifications, and send a quick test message to Discord.</p>
+    </header>
+
+    {% if not is_configured %}
+    <section class="panel panel-highlight">
+        <div class="panel-body">
+            <div class="empty-state" style="padding: 1.5rem 0;">
+                <div class="empty-state-icon" aria-hidden="true">⚙️</div>
+                <h2 class="empty-state-title">Connect Discord to get started</h2>
+                <p class="empty-state-text">Add your Discord webhook URL in Configure before creating notification flows.</p>
+                <div class="empty-state-actions">
+                    <a href="{{ url_for('configure') }}" class="btn-primary">Configure Webhook</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if total_flow_count == 0 and is_configured %}
+    <section class="quick-start">
+        <h2 class="panel-title">Quick start</h2>
+        <div class="quick-start-grid">
+            <div class="step-card">
+                <span class="step-number">1</span>
+                <h3 class="step-title">Pick a template</h3>
+                <p class="step-text">Start from a pre-built flow for Sonarr, Radarr, or common monitoring use cases.</p>
+                <a href="{{ url_for('show_templates') }}" class="btn-secondary">Browse templates</a>
+            </div>
+            <div class="step-card">
+                <span class="step-number">2</span>
+                <h3 class="step-title">Build your flow</h3>
+                <p class="step-text">Set a trigger (schedule, API change, or incoming webhook) and customize the Discord message.</p>
+                <a href="{{ url_for('notification_builder') }}" class="btn-secondary">Open builder</a>
+            </div>
+            <div class="step-card">
+                <span class="step-number">3</span>
+                <h3 class="step-title">Monitor activity</h3>
+                <p class="step-text">Track runs and delivery history from Statistics and Logs.</p>
+                <a href="{{ url_for('show_flow_stats') }}" class="btn-secondary">View statistics</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="stat-strip">
+        <div class="stat-pill">
+            <span class="stat-pill-value">{{ active_flow_count }}</span>
+            <span class="stat-pill-label">Active flows</span>
+        </div>
+        <div class="stat-pill">
+            <span class="stat-pill-value">{{ total_flow_count }}</span>
+            <span class="stat-pill-label">Total flows</span>
+        </div>
+        <div class="stat-pill">
+            <span class="stat-pill-value">{{ notification_logs|length }}</span>
+            <span class="stat-pill-label">Recent notifications</span>
+        </div>
+    </div>
+
+    <div class="content-grid homepage-container">
         <div class="homepage-left">
-            <section class="recent-notifications">
-                <h2>Recent Notifications</h2>
-                {% if notification_logs %}
-                    <div class="notification-entries">
-                        {% for notification in notification_logs %}
-                            <div class="notification-entry">
-                                <div class="notification-header">
-                                    <span class="notification-time">{{ notification.timestamp|datetimeformat('%b %d, %H:%M:%S') }}</span>
-                                    <span class="notification-flow">{{ notification.flow_name }}</span>
-                                    {% if notification.webhook_name %}
-                                        <span class="notification-webhook">via {{ notification.webhook_name }}</span>
+            <section class="panel recent-notifications">
+                <div class="panel-header">
+                    <h2 class="panel-title">Recent notifications</h2>
+                </div>
+                <div class="panel-body">
+                    {% if notification_logs %}
+                        <div class="notification-entries">
+                            {% for notification in notification_logs %}
+                                <article class="notification-entry">
+                                    <div class="notification-header">
+                                        <time class="notification-time">{{ notification.timestamp|datetimeformat('%b %d, %H:%M:%S') }}</time>
+                                        <span class="notification-flow">{{ notification.flow_name }}</span>
+                                        {% if notification.webhook_name %}
+                                            <span class="notification-webhook">via {{ notification.webhook_name }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if notification.message_content %}
+                                        <div class="notification-message">
+                                            <strong>Message:</strong> {{ notification.message_content }}
+                                        </div>
                                     {% endif %}
-                                </div>
-                                {% if notification.message_content %}
-                                    <div class="notification-message">
-                                        <strong>Message:</strong> {{ notification.message_content }}
-                                    </div>
-                                {% endif %}
-                                {% if notification.embed_info %}
-                                    <div class="notification-embed">
-                                        <strong>Embed:</strong> 
-                                        {% if notification.embed_info.title %}
-                                            <span class="embed-title">{{ notification.embed_info.title }}</span>
-                                        {% endif %}
-                                        {% if notification.embed_info.description %}
-                                            <span class="embed-description">{{ notification.embed_info.description }}</span>
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p>No notifications sent yet.</p>
-                {% endif %}
+                                    {% if notification.embed_info %}
+                                        <div class="notification-embed">
+                                            <strong>Embed:</strong>
+                                            {% if notification.embed_info.title %}
+                                                <span class="embed-title">{{ notification.embed_info.title }}</span>
+                                            {% endif %}
+                                            {% if notification.embed_info.description %}
+                                                <span class="embed-description">{{ notification.embed_info.description }}</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-state-icon" aria-hidden="true">📭</div>
+                            <h3 class="empty-state-title">No notifications yet</h3>
+                            <p class="empty-state-text">Notifications appear here after a flow runs or you send a test message.</p>
+                        </div>
+                    {% endif %}
+                </div>
             </section>
 
-            <section class="test-notification">
-                <h2>Send Test Notification</h2>
-                <form method="post">
-                    <input type="text" name="test_message" placeholder="Test message" required>
-                    <button type="submit">Send to Discord</button>
-                </form>
+            <section class="panel test-notification">
+                <div class="panel-header">
+                    <h2 class="panel-title">Send test notification</h2>
+                </div>
+                <div class="panel-body">
+                    <p class="page-description" style="margin-bottom: 1rem;">Verify your Discord webhook is working with a one-off message.</p>
+                    <form method="post" class="test-notification-form">
+                        <input type="text" name="test_message" placeholder="Hello from turtifications!" required aria-label="Test message">
+                        <button type="submit">Send to Discord</button>
+                    </form>
+                </div>
             </section>
         </div>
 
-        <div class="homepage-right">
-            <section class="active-flows">
-                <div class="flows-header">
-                    <h2>Active Notification Flows ({{ active_flows|length }})</h2>
+        <aside class="homepage-right">
+            <section class="panel active-flows">
+                <div class="panel-header flows-header">
+                    <h2 class="panel-title">Active flows ({{ active_flows|length }})</h2>
                 </div>
-                
-                <!-- Category Filter -->
-                <div class="category-filter">
-                    <label for="homepage-category-filter">Filter by Category:</label>
-                    <select id="homepage-category-filter">
-                        <option value="">All Categories</option>
-                        <option value="General">General</option>
-                        <option value="Media">Media</option>
-                        <option value="System">System</option>
-                        <option value="Monitoring">Monitoring</option>
-                        <option value="Reports">Reports</option>
-                        <option value="Alerts">Alerts</option>
-                    </select>
-                </div>
-                
-                {% if active_flows %}
-                    <div class="flow-grid">
-                        {% for flow in active_flows %}
-                            <div class="flow-card" data-category="{{ flow.category or 'General' }}">
-                                <div class="flow-header">
-                                    <h3>{{ flow.name }}</h3>
-                                    <button class="btn-toggle-flow" 
-                                            onclick="toggleFlow('{{ flow.name }}', false)" 
-                                            title="Disable Flow">
-                                        Disable
-                                    </button>
-                                </div>
-                                <p><strong>Category:</strong> {{ flow.category or 'General' }}</p>
-                                <p><strong>Type:</strong> 
-                                    {% if flow.trigger_type == 'timer' %}
-                                        <span class="flow-type timer">Scheduled ({{ flow.interval }}m)</span>
-                                    {% elif flow.trigger_type == 'on_change' %}
-                                        <span class="flow-type change">Change Detection</span>
-                                    {% elif flow.trigger_type == 'on_incoming' %}
-                                        <span class="flow-type webhook">Webhook</span>
-                                    {% endif %}
-                                </p>
-                                <p><strong>Status:</strong> 
-                                    {% if flow.trigger_type == 'on_change' and 'last_value' in flow %}
-                                        Monitoring (Current: {{ flow.last_value }})
-                                    {% elif flow.trigger_type == 'timer' and 'last_run' in flow %}
-                                        Last ran: {{ flow.last_run|datetimeformat }}
-                                    {% else %}
-                                        Active
-                                    {% endif %}
-                                </p>
-                                {% if flow.trigger_type == 'on_incoming' %}
-                                    <p><strong>Webhook URL:</strong> /api/webhook/{{ flow.name }}</p>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
+                <div class="panel-body">
+                    <div class="category-filter">
+                        <label for="homepage-category-filter">Filter by category</label>
+                        <select id="homepage-category-filter">
+                            <option value="">All categories</option>
+                            <option value="General">General</option>
+                            <option value="Media">Media</option>
+                            <option value="System">System</option>
+                            <option value="Monitoring">Monitoring</option>
+                            <option value="Reports">Reports</option>
+                            <option value="Alerts">Alerts</option>
+                        </select>
                     </div>
-                {% else %}
-                    <p>No active notification flows configured.</p>
-                {% endif %}
+
+                    {% if active_flows %}
+                        <div class="flow-grid">
+                            {% for flow in active_flows %}
+                                <article class="flow-card" data-category="{{ flow.category or 'General' }}">
+                                    <div class="flow-header">
+                                        <h3>{{ flow.name }}</h3>
+                                        <button type="button" class="btn-toggle-flow"
+                                                onclick="toggleFlow('{{ flow.name }}', false)"
+                                                title="Disable flow">
+                                            Disable
+                                        </button>
+                                    </div>
+                                    <p><strong>Category:</strong> {{ flow.category or 'General' }}</p>
+                                    <p><strong>Type:</strong>
+                                        {% if flow.trigger_type == 'timer' %}
+                                            <span class="flow-type timer">Scheduled ({{ flow.interval }}m)</span>
+                                        {% elif flow.trigger_type == 'on_change' %}
+                                            <span class="flow-type change">Change detection</span>
+                                        {% elif flow.trigger_type == 'webhook' %}
+                                            <span class="flow-type webhook">Webhook</span>
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Status:</strong>
+                                        {% if flow.trigger_type == 'on_change' and 'last_value' in flow %}
+                                            Monitoring (current: {{ flow.last_value }})
+                                        {% elif flow.trigger_type == 'timer' and 'last_run' in flow %}
+                                            Last ran: {{ flow.last_run|datetimeformat }}
+                                        {% else %}
+                                            Active
+                                        {% endif %}
+                                    </p>
+                                    {% if flow.trigger_type == 'webhook' %}
+                                        <p><strong>Webhook URL:</strong> <code>/api/webhook/{{ flow.name }}</code></p>
+                                    {% endif %}
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-state-icon" aria-hidden="true">🔔</div>
+                            <h3 class="empty-state-title">No active flows</h3>
+                            <p class="empty-state-text">Create a flow in the Builder or start from a template.</p>
+                            <div class="empty-state-actions">
+                                <a href="{{ url_for('notification_builder') }}" class="btn-primary">Create flow</a>
+                                <a href="{{ url_for('show_templates') }}" class="btn-secondary">Use template</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
             </section>
-        </div>
+        </aside>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Category filter functionality for homepage
             const categoryFilter = document.getElementById('homepage-category-filter');
-            if (categoryFilter) {
-                categoryFilter.addEventListener('change', function() {
-                    const selectedCategory = this.value;
-                    const flowCards = document.querySelectorAll('.flow-card');
-                    let visibleCount = 0;
-                    
-                    flowCards.forEach(card => {
-                        const cardCategory = card.dataset.category;
-                        if (!selectedCategory || cardCategory === selectedCategory) {
-                            card.style.display = 'block';
-                            visibleCount++;
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    });
-                    
-                    // Update the flows count in the header
-                    const flowsHeader = document.querySelector('.flows-header h2');
-                    if (flowsHeader) {
-                        const totalFlows = document.querySelectorAll('.flow-card').length;
-                        flowsHeader.textContent = `Active Notification Flows (${visibleCount}/${totalFlows})`;
+            if (!categoryFilter) return;
+
+            categoryFilter.addEventListener('change', function() {
+                const selectedCategory = this.value;
+                const flowCards = document.querySelectorAll('.flow-card');
+                let visibleCount = 0;
+
+                flowCards.forEach(card => {
+                    const cardCategory = card.dataset.category;
+                    if (!selectedCategory || cardCategory === selectedCategory) {
+                        card.style.display = '';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
                     }
                 });
-            }
+
+                const flowsHeader = document.querySelector('.flows-header .panel-title');
+                if (flowsHeader) {
+                    const totalFlows = flowCards.length;
+                    flowsHeader.textContent = `Active flows (${visibleCount}/${totalFlows})`;
+                }
+            });
         });
-        
+
         function toggleFlow(flowName, active) {
             fetch('/toggle_flow', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    flow_name: flowName,
-                    active: active
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ flow_name: flowName, active: active })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Reload the page to show updated flow status
                     window.location.reload();
                 } else {
-                    alert('Failed to toggle flow: ' + (data.error || 'Unknown error'));
+                    notify('Failed to toggle flow: ' + (data.error || 'Unknown error'), 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to toggle flow');
-            });
+            .catch(() => notify('Failed to toggle flow', 'error'));
         }
     </script>
 {% endblock %}
